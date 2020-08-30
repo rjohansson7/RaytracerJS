@@ -9,6 +9,7 @@ Simple raytracer written in javascript
 2. Either create your own `launch.json` or use mine (`.vscode/launch.json`)
 3. Configure Firefox to allow remote debugging, or use Firefox Developer Edition
 4. Run Firefox with remote debugging:
+###### Powershell
 ```powershell
 Start-Process "C:\Program Files\Firefox Developer Edition\firefox.exe" -ArgumentList "-start-debugger-server"
 ```
