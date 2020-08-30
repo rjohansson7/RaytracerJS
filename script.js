@@ -318,7 +318,6 @@ function Raytrace(windowWidth, windowHeight, imageBuffer)
     }
 }
 
-// TODO: Hitta varför Ip blir NULL med debugger
 function ComputeLighting(P, N, V, lights, element)
 {
     var Ip = {r: 0.0, g: 0.0, b: 0.0};
@@ -360,7 +359,7 @@ function ComputeLighting(P, N, V, lights, element)
                 Ip.g += diffuseG + specularG;
                 Ip.b += diffuseB + specularB;
                 
-                // OLD   Ip += light.intensity * angle / (Vec3.vec_length(N) * Vec3.vec_length(N));
+                break;
             default:
                 break;
         }
