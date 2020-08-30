@@ -1,4 +1,4 @@
-# raytracer_js
+# RaytracerJS
 Simple raytracer written in javascript
 
 ## TODO
