@@ -2,9 +2,10 @@
 Simple raytracer written in javascript
 
 ## TODO
+- Plane (texture)
+- Ray-plane intersection
 - Reflection
 - Shadows
-- Ray-plane intersection
 - Refraction
 - And more.. 
 #### Debug in VScode with Firefox developer edition: 

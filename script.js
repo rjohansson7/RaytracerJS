@@ -76,6 +76,42 @@ class Ray
     {
       this.origin = origin;
       this.direction = direction;
+
+      this.closestHit = Infinity;
+      this.farthestHit = -Infinity;
+      this.objectHit = null;
+    }
+
+    calculateClosestHit(entities)
+    {
+        // Reset hit variables
+        this.closestHit = Infinity;
+        this.farthestHit = -Infinity;
+        this.objectHit = null;
+
+        // Test intersection against each entity
+        entities.forEach(entity => 
+        {
+            var test = entity.intersect(this);
+            if (isNaN(test.min) == false)
+            {
+                // Since a ray may hit a sphere twice i save both the close and the far hit
+                if (test.min < this.closestHit)
+                {
+                    this.closestHit = test.min;
+                    this.farthestHit = test.max;
+                    this.objectHit = entity;
+                }
+            }
+        });
+
+        // Return true if hit
+        if (this.objectHit != null)
+        {
+            return true;
+        }
+
+        return false;
     }
 }
 
@@ -165,6 +201,9 @@ class Sphere extends Entity
             // Two intersections
             return {min: Math.min(d1, d2), max: Math.max(d1, d2)};
         }
+
+        // No hit
+        return {min: NaN, max: NaN};
     }
 
     GetNormal(P)
@@ -281,7 +320,7 @@ function Raytrace(windowWidth, windowHeight, imageBuffer)
     //lights.push(new PointLight(new Vec3(10.0, -4.0, -10.0), new Color(0.0215, 0.1745, 0.0215, 1.0), new Color(0.85, 0.85, 0.85, 1.0), new Color(0.8, 0.8, 0.8, 1.0)));
     lights.push(new PointLight(new Vec3(10.0, 4.0, -10.0), new Color(1.0, 1.0, 1.0, 1.0), new Color(1.0, 1.0, 1.0, 1.0), new Color(1.0, 1.0, 1.0, 1.0)));
 
-    // Run the ray tracing calculations
+    // Run the ray tracing calculations for every pixel
     for (let y = 0; y < camera.windowHeight; y++) 
     {
         for (let x = 0; x < camera.windowWidth; x++) 
@@ -290,51 +329,42 @@ function Raytrace(windowWidth, windowHeight, imageBuffer)
             var ray = camera.GetPixelRay(x, y);
 
             // Test intersection against each entity
-            entities.forEach(element => 
+            if (ray.calculateClosestHit(entities))
             {
-                var test = element.intersect(ray);
-                if (isNaN(test.min) == false)
-                {
-                    // We have an intersection with element
-                    // Lets calculate the lighting that affect this point(s)
+                var I = ComputeLighting(ray, camera, lights);
 
-                    // Calculate the point of the hit on the object
-                    var P = Vec3.vec_add(ray.origin, Vec3.scalar_mul(test.min, ray.direction)); 
-                    
-                    // Calculate the normal for the closest point
-                    var N = element.GetNormal(P, test.min);
-
-                    // Calculate the viewer direction
-                    var V = Vec3.vec_normalize(Vec3.vec_sub(camera.position, P)); 
-
-                    // Calculate the light intensity on this point
-                    var I = ComputeLighting(P, N, V, lights, element);
-                    
-                    //console.log(I);
-                    SetPixel(x, y, imageBuffer.data, element.color.r * I.r, element.color.g * I.g, element.color.b * I.b, element.color.a);
-                }
-            });
+                SetPixel(x, y, imageBuffer.data, ray.objectHit.color.r * I.r, ray.objectHit.color.g * I.g, ray.objectHit.color.b * I.b, ray.objectHit.color.a);
+            }
         }           
     }
 }
 
-function ComputeLighting(P, N, V, lights, element)
+function ComputeLighting(ray, camera, lights)
 {
     var Ip = {r: 0.0, g: 0.0, b: 0.0};
     var Ia = {r: 0.0, g: 0.0, b: 0.0};
+
+    // Calculate the point of the hit on the object
+    var P = Vec3.vec_add(ray.origin, Vec3.scalar_mul(ray.closestHit, ray.direction)); 
+                    
+    // Calculate the normal for the closest point
+    var N = ray.objectHit.GetNormal(P, ray.closestHit);
+
+    // Calculate the viewer direction
+    var V = Vec3.vec_normalize(Vec3.vec_sub(camera.position, P)); 
 
     lights.forEach(light => {
         switch (light.type) {
             case LightType.POINT:
                 // Save biggest ambient
                 if (light.ambient.r > Ia.r) {
-                    Ia.r += light.ambient.r;
+                    Ia.r = light.ambient.r;
                 }
                 if (light.ambient.g > Ia.g) {
-                    Ia.g += light.ambient.g;
+                    Ia.g = light.ambient.g;
                 }
                 if (light.ambient.b > Ia.b) {
-                    Ia.b += light.ambient.b;
+                    Ia.b = light.ambient.b;
                 }
 
                 // First calculate a vector between the point, and the light
@@ -344,16 +374,17 @@ function ComputeLighting(P, N, V, lights, element)
                 var LN = Math.max(Vec3.vec_dot(N, L), 0.0);
 
                 // Calculate reflection vector
-                var R = Vec3.vec_normalize(Vec3.vec_sub(Vec3.scalar_mul(2.0 * LN, N), L)); //Vec3.vec_normalize(Vec3.vec_sub(Vec3.scalar_mul(2.0 * LN, N), L));
+                var R = Vec3.vec_normalize(Vec3.vec_sub(Vec3.scalar_mul(2.0 * LN, N), L));
                 var RV = Math.max(Vec3.vec_dot(R, V), 0.0);
 
-                var diffuseR = element.material.diffuse.r * LN * light.diffuse.r;
-                var diffuseG = element.material.diffuse.g * LN * light.diffuse.g;
-                var diffuseB = element.material.diffuse.b * LN * light.diffuse.b;
+                // Calculate diffuse and specular for each color channel red, green and blue
+                var diffuseR = ray.objectHit.material.diffuse.r * LN * light.diffuse.r;
+                var diffuseG = ray.objectHit.material.diffuse.g * LN * light.diffuse.g;
+                var diffuseB = ray.objectHit.material.diffuse.b * LN * light.diffuse.b;
 
-                var specularR = element.material.specular.r * Math.pow(RV, element.material.shininess) * light.specular.r; // <---- PROBLEM, KAN VARA V?
-                var specularG = element.material.specular.g * Math.pow(RV, element.material.shininess) * light.specular.g; 
-                var specularB = element.material.specular.b * Math.pow(RV, element.material.shininess) * light.specular.b; 
+                var specularR = ray.objectHit.material.specular.r * Math.pow(RV, ray.objectHit.material.shininess) * light.specular.r;
+                var specularG = ray.objectHit.material.specular.g * Math.pow(RV, ray.objectHit.material.shininess) * light.specular.g; 
+                var specularB = ray.objectHit.material.specular.b * Math.pow(RV, ray.objectHit.material.shininess) * light.specular.b; 
                 
                 Ip.r += diffuseR + specularR;
                 Ip.g += diffuseG + specularG;
@@ -365,9 +396,9 @@ function ComputeLighting(P, N, V, lights, element)
         }
     });
 
-    Ip.r += element.material.ambient.r * Ia.r;
-    Ip.g += element.material.ambient.g * Ia.g;
-    Ip.b += element.material.ambient.b * Ia.b;
+    Ip.r += ray.objectHit.material.ambient.r * Ia.r;
+    Ip.g += ray.objectHit.material.ambient.g * Ia.g;
+    Ip.b += ray.objectHit.material.ambient.b * Ia.b;
 
     return Ip;
 }
