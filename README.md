@@ -2,7 +2,7 @@
 Simple raytracer written in javascript
 
 ## TODO
-- Plane (texture)
+- Plane (with texture?)
 - Ray-plane intersection
 - Reflection
 - Shadows

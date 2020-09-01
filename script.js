@@ -1,3 +1,4 @@
+import gauss from './gauss';
 
 // CLASSES
 class Color
@@ -59,14 +60,10 @@ class Vec3
     {
         return (v1.x * v2.x + v1.y * v2.y + v1.z * v2.z);
     }
-}
 
-class Hit
-{
-    constructor(min, max)
+    static vec_scale(v, k)
     {
-        this.min = min;
-        this.max = max;
+        return new Vec3(v.x * f, v.y * f, v.z * f);
     }
 }
 
@@ -206,13 +203,34 @@ class Sphere extends Entity
         return {min: NaN, max: NaN};
     }
 
-    GetNormal(P)
+    getNormal(P)
     {
         return Vec3.vec_normalize(Vec3.vec_sub(P, this.center));
     }
 }
 
+class Plane extends Entity
+{
+    constructor(botLeft, topRight, color, material)
+    {
+        let v = Vec3.vec_sub(topRight, botLeft);
+        let center = Vec3.vec_scale(v, 0.5);
 
+        super(center, color, material);
+        this.botLeft = botLeft;
+        this.topRight = topRight;
+
+        // Calculate the planes eq from the three points we have
+        // First solve the linear eq for x, y and z
+        let result = gauss([botLeft.x, botLeft.y, botLeft.z, 0], [topRight.x, topRight.y, topRight.z, 0], [center.x, center.y, center.z, 0]);
+        this.equation = new Vec3(result.x, result.y, result.z);
+    }
+
+    intersect(ray)
+    {
+        return 0;
+    }
+}
 
 class Camera
 {
@@ -267,6 +285,8 @@ class Camera
 // GLOBAL
 var c = document.getElementById("myCanvas");
 Main();
+let A = [[10,-7,3,5], [-6,8,4,7], [2,6,9,-1]];
+console.log(gauss(A)); //gauss(A)
 
 // FUNCTIONS
 function Main()
@@ -298,7 +318,7 @@ function SetPixel(x, y, buffer, newRed, newGreen, newBlue, newAlpha)
     y = c.height - y;
 
     // Apply the stride (4 elements per pixel)
-    index = ((x * 4) + (y * (c.width * 4)));
+    let index = ((x * 4) + (y * (c.width * 4)));
 
     buffer[index]     = newRed * 255.0;
     buffer[index + 1] = newGreen * 255.0;
@@ -348,7 +368,7 @@ function ComputeLighting(ray, camera, lights)
     var P = Vec3.vec_add(ray.origin, Vec3.scalar_mul(ray.closestHit, ray.direction)); 
                     
     // Calculate the normal for the closest point
-    var N = ray.objectHit.GetNormal(P, ray.closestHit);
+    var N = ray.objectHit.getNormal(P, ray.closestHit);
 
     // Calculate the viewer direction
     var V = Vec3.vec_normalize(Vec3.vec_sub(camera.position, P)); 
