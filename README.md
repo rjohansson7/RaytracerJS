@@ -23,4 +23,5 @@ Start-Process "C:\Program Files\Firefox Developer Edition\firefox.exe" -Argument
 * [Phong reflection model](https://en.wikipedia.org/wiki/Phong_reflection_model)
 * [Ray-plane intersection](https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-plane-and-ray-disk-intersection)
 * Ray-plane boundaries are done through: 
-![alt text](Plane_boundaries.png)
+
+![Image describing ray-plane boundaries](Plane_boundaries.png)
