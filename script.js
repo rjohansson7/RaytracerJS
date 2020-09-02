@@ -1,4 +1,4 @@
-import gauss from './gauss';
+//import gauss from './gauss';
 
 // CLASSES
 class Color
@@ -63,7 +63,7 @@ class Vec3
 
     static vec_scale(v, k)
     {
-        return new Vec3(v.x * f, v.y * f, v.z * f);
+        return new Vec3(v.x * k, v.y * k, v.z * k);
     }
 }
 
@@ -152,7 +152,8 @@ class Material
 
 const Materials= {
     NEUTRAL: new Material(new Color(0.2, 0.2, 0.2, 1.0), new Color(0.8, 0.8, 0.8, 1.0), new Color(0.0225, 0.0225, 0.0225, 1.0), 12.8), 
-    PLASTIC: new Material(new Color(0.0, 0.1, 0.06, 1.0), new Color(0.0, 0.50980392, 0.50980392, 1.0), new Color(0.50196078, 0.50196078, 0.50196078, 1.0), 128.0)
+    PLASTIC: new Material(new Color(0.0, 0.1, 0.06, 1.0), new Color(0.0, 0.50980392, 0.50980392, 1.0), new Color(0.50196078, 0.50196078, 0.50196078, 1.0), 128.0),
+    CHROME: new Material(new Color(0.25, 0.25, 0.25, 1.0), new Color(0.4, 0.4, 0.4, 1.0), new Color(0.774597, 0.774597, 0.774597, 1.0), 0.6 * 128.0)
 }
 
 class Entity
@@ -211,24 +212,140 @@ class Sphere extends Entity
 
 class Plane extends Entity
 {
-    constructor(botLeft, topRight, color, material)
+    constructor(center, normal, up, width, height, color, material) // (botLeft, topRight, color, material)
     {
-        let v = Vec3.vec_sub(topRight, botLeft);
-        let center = Vec3.vec_scale(v, 0.5);
-
         super(center, color, material);
-        this.botLeft = botLeft;
-        this.topRight = topRight;
+        this.normal = Vec3.vec_normalize(normal);
+        this.up = Vec3.vec_normalize(up);
+        this.width = width;
+        this.height = height;
 
-        // Calculate the planes eq from the three points we have
-        // First solve the linear eq for x, y and z
-        let result = gauss([botLeft.x, botLeft.y, botLeft.z, 0], [topRight.x, topRight.y, topRight.z, 0], [center.x, center.y, center.z, 0]);
-        this.equation = new Vec3(result.x, result.y, result.z);
+        // Make sure normal and up are perpendicular
+        if (Vec3.vec_dot(normal, up) != 0.0)
+        {
+            throw "[ERROR][PLANE] The two vectors normal and up must be perpendicular!";
+        }
+
+        // Calculate right vector
+        this.right = Vec3.vec_normalize(Vec3.vec_cross(normal, up));
     }
 
     intersect(ray)
     {
-        return 0;
+        // If the ray have a point for which (p - this.center).dot(this.normal) = 0, we have an intersection
+        // since the dot product of two vectors which are perpendicular to each other is always equal to 0
+        let denominator = Vec3.vec_dot(ray.direction, this.getNormal(0));
+        //console.log(ray.direction);
+        // If denominator is close to 0, the ray and the plane are parallel
+        if(denominator > 0 || denominator < 0)
+        {
+            let t = Vec3.vec_dot(Vec3.vec_sub(this.center, ray.origin), this.getNormal(this.center)) / denominator;
+            if (t > 0)
+            {
+                // The ray intersects the plane according to the plane equation, 
+                // now we need to check if it is inside the specified width and height borders
+               
+                // Calculate coordinates for the point where the plane intersects with the ray
+                let P = Vec3.vec_add(ray.origin, Vec3.scalar_mul(t, ray.direction)); 
+                
+                // I do this by sending a ray from P in the direction of the this.right vector
+                // then checking where it intersects with the this.up vector
+                //   P1 + a V1 = P2 + b V2 -> a V1 = (P2 - P1) + b V2 -> a = |(P2-P1) X V2| / |V1 X V2|
+                //   upDistance = |(P-this.center) X this.right| / crossMag
+                let crossMag = Vec3.vec_length(Vec3.vec_cross(this.up, this.right));
+                if (crossMag != 0.0) 
+                {
+                    // Calculate how far in the up direction where point P lies
+                    let Pheight = Vec3.vec_length(Vec3.vec_cross(Vec3.vec_sub(P, this.center), this.right)) / crossMag;
+                    let Pwidth  = Vec3.vec_length(Vec3.vec_cross(Vec3.vec_sub(P, this.center), this.up)) / crossMag;
+                    
+                    // Is this point inside the plane's boundaries
+                    if (Pheight <= (this.height / 2) && Pwidth <= (this.width / 2))
+                    {
+                        return {min: t, max: NaN};
+                    }  
+                }
+            }
+        }
+
+        
+        return {min: NaN, max: NaN};
+    }
+
+    getNormal(P)
+    {
+        // Ax + BX + Cx + d = 0 is my equation setup (where d=1).
+        // In this case A, B and C is a normal to this plane
+        return Vec3.vec_normalize(this.normal);
+    }
+}
+
+class Heart extends Entity
+{
+    constructor(center, normal, up, width, height, color, material) // (botLeft, topRight, color, material)
+    {
+        super(center, color, material);
+        this.normal = Vec3.vec_normalize(normal);
+        this.up = Vec3.vec_normalize(up);
+        this.width = width;
+        this.height = height;
+
+        // Make sure normal and up are perpendicular
+        if (Vec3.vec_dot(normal, up) != 0.0)
+        {
+            throw "[ERROR][PLANE] The two vectors normal and up must be perpendicular!";
+        }
+
+        // Calculate right vector
+        this.right = Vec3.vec_normalize(Vec3.vec_cross(normal, up));
+
+    }
+
+    intersect(ray)
+    {
+        // If the ray have a point for which (p - this.center).dot(this.normal) = 0, we have an intersection
+        // since the dot product of two vectors which are perpendicular to each other is always equal to 0
+        let denominator = Vec3.vec_dot(ray.direction, this.getNormal(0));
+        //console.log(ray.direction);
+        // If denominator is close to 0, the ray and the plane are parallel
+        if(denominator > 0 || denominator < 0)
+        {
+            let t = Vec3.vec_dot(Vec3.vec_sub(this.center, ray.origin), this.getNormal(this.center)) / denominator;
+            if (t > 0)
+            {
+                // The ray intersects the plane according to the plane equation, 
+                // now we need to check if it is inside the specified width and height borders
+               
+                // Calculate coordinates for this point
+                let P = Vec3.vec_add(ray.origin, Vec3.scalar_mul(t, ray.direction)); 
+                
+                // I do this by sending a ray from P in the direction of the this.right vector
+                // then checking where it intersects with the this.up vector
+                let crossMag = Vec3.vec_length(Vec3.vec_cross(this.right, this.up));
+                if (crossMag != 0.0) 
+                {
+                    // Calculate how far in the up/right directions point P lies
+                    let Pheight = Vec3.vec_length(Vec3.vec_cross(Vec3.vec_sub(P, this.center), this.up)) / crossMag;
+                    let Pwidth = Vec3.vec_length(Vec3.vec_sub(P, Vec3.vec_add(this.center, Vec3.scalar_mul(Pheight, this.up))));
+                    
+                    // Is this point inside the plane's boundaries
+                    if (Pheight <= (this.height / 2) && Pwidth <= (this.width / 2))
+                    {
+                        return {min: t, max: NaN};
+                    }  
+                }
+            }
+        }
+
+        
+        return {min: NaN, max: NaN};
+    }
+
+    getNormal(P)
+    {
+        // Ax + BX + Cx + d = 0 is my equation setup (where d=1).
+        // In this case A, B and C is a normal to this plane
+        return Vec3.vec_normalize(this.normal);
     }
 }
 
@@ -285,8 +402,6 @@ class Camera
 // GLOBAL
 var c = document.getElementById("myCanvas");
 Main();
-let A = [[10,-7,3,5], [-6,8,4,7], [2,6,9,-1]];
-console.log(gauss(A)); //gauss(A)
 
 // FUNCTIONS
 function Main()
@@ -334,6 +449,7 @@ function Raytrace(windowWidth, windowHeight, imageBuffer)
     // Add entities
     var entities = [];
     entities.push(new Sphere(new Vec3(0.0, 0.0, 2.0), 0.5, new Color(0.0, 1.0, 0.0, 1.0), Materials.PLASTIC));
+    entities.push(new Plane(new Vec3(-2.0, 0.0, 15.0), new Vec3(0.2, 0.0, -1.0), new Vec3(0.0, 1.0, 0.0), 10.0, 10.0, new Color(1.0, 0.0, 0.0, 1.0), Materials.CHROME));
 
     // Add lights
     var lights = [];
@@ -368,7 +484,7 @@ function ComputeLighting(ray, camera, lights)
     var P = Vec3.vec_add(ray.origin, Vec3.scalar_mul(ray.closestHit, ray.direction)); 
                     
     // Calculate the normal for the closest point
-    var N = ray.objectHit.getNormal(P, ray.closestHit);
+    var N = ray.objectHit.getNormal(P);
 
     // Calculate the viewer direction
     var V = Vec3.vec_normalize(Vec3.vec_sub(camera.position, P)); 

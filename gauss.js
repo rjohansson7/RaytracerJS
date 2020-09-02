@@ -3,6 +3,16 @@
 export default function gauss(mat)
 {
     let columns = mat.length + 1;
+    
+    for (let i = 0; i < mat.length; i++) 
+    {
+        for (let j = 0; j < columns; j++)
+        {
+            console.log("mat[%d][%d]: %d", i, j, mat[i][j]);
+        }     
+        console.log(" ");
+    }
+    
 
     // Generate Upper Triangular Matrix
     for (let i = 0; i < mat.length; i++) 
@@ -13,7 +23,6 @@ export default function gauss(mat)
             {
                 // Calculate by how much we should multiply row i with to get mat[j][i] = 0 
                 let c = mat[j][i] / mat[i][i];
-
                 // Subtract row j with (c * row i)
                 for(let k = 0; k < columns; k++)
                 {
@@ -23,11 +32,13 @@ export default function gauss(mat)
         }
     }
 
+    
     // Solve rest with backward substitution
     let result = new Array(mat.length);
     // Since we now have a Upper triangular matrix, last row is easily solved
+    console.log(mat[mat.length-1][columns - 1] / mat[mat.length-1][columns - 1]);
     result[result.length-1] = mat[mat.length-1][columns - 1] / mat[mat.length-1][columns - 1];
-
+    
     // Continue with backward substitution, 
     // aka zero what we can for the rest of the upper triangle with the last row 
     for (let i = result.length-1; i > - 1; i--)
@@ -38,6 +49,15 @@ export default function gauss(mat)
             mat[j][columns - 1] -= mat[j][i] * result[i];
         }
     }
-
+    
+    for (let i = 0; i < mat.length; i++) 
+    {
+        for (let j = 0; j < columns; j++)
+        {
+            console.log("mat[%d][%d]: %d", i, j, mat[i][j]);
+        }     
+        console.log(" ");
+    }
+    
     return {x: result[0], y: result[1], z: result[2]};
 }
