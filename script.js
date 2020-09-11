@@ -51,6 +51,11 @@ class Vec3
         return new Vec3(vector.x - scalar, vector.y - scalar, vector.z - scalar);
     }
 
+    static scalar_add(scalar, vector)
+    {
+        return new Vec3(vector.x + scalar, vector.y + scalar, vector.z + scalar);
+    }
+
     static vec_add(v1, v2)
     {
         return new Vec3(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z);
@@ -77,6 +82,9 @@ class Ray
       this.closestHit = Infinity;
       this.farthestHit = -Infinity;
       this.objectHit = null;
+      this.objectHitX = NaN;
+      this.objectHitY = NaN;
+      //this.objectHitZ = NaN;
     }
 
     calculateClosestHit(entities)
@@ -85,6 +93,8 @@ class Ray
         this.closestHit = Infinity;
         this.farthestHit = -Infinity;
         this.objectHit = null;
+        this.objectHitX = NaN;
+        this.objectHitY = NaN;
 
         // Test intersection against each entity
         entities.forEach(entity => 
@@ -98,6 +108,9 @@ class Ray
                     this.closestHit = test.min;
                     this.farthestHit = test.max;
                     this.objectHit = entity;
+                    this.objectHitX = test.px;
+                    this.objectHitY = test.py;
+                    //this.objectHitZ = test.pz;
                 }
             }
         });
@@ -181,7 +194,7 @@ class Sphere extends Entity
         if (intersect < 0)
         {
             // No intersection
-            return {min: NaN, max: NaN};
+            return {min: NaN, max: NaN, px: NaN, py: NaN};
         }
         // Calculate where the intersection(s) happen
         var d1 = -(Vec3.vec_dot(ray.direction, Vec3.vec_sub(ray.origin, this.center))) + Math.sqrt(intersect); 
@@ -201,33 +214,44 @@ class Sphere extends Entity
         }
 
         // No hit
-        return {min: NaN, max: NaN};
+        return {min: NaN, max: NaN, px: NaN, py: NaN};
     }
 
     getNormal(P)
     {
         return Vec3.vec_normalize(Vec3.vec_sub(P, this.center));
     }
+
+    getPixelColor(x, y)
+    {
+        return this.color;
+    }
 }
 
 class Plane extends Entity
 {
-    constructor(center, normal, up, width, height, color, material) // (botLeft, topRight, color, material)
+    constructor(center, normal, up, width, height, color, material, texture = false) // (botLeft, topRight, color, material)
     {
         super(center, color, material);
         this.normal = Vec3.vec_normalize(normal);
         this.up = Vec3.vec_normalize(up);
         this.width = width;
         this.height = height;
-
+        this.texture = texture;
+        
         // Make sure normal and up are perpendicular
         if (Vec3.vec_dot(normal, up) != 0.0)
         {
             throw "[ERROR][PLANE] The two vectors normal and up must be perpendicular!";
         }
-
+        
         // Calculate right vector
         this.right = Vec3.vec_normalize(Vec3.vec_cross(normal, up));
+        
+        // Move (this.height/2) in the -right direction from the center
+        let midLeft = Vec3.vec_sub(this.center, Vec3.scalar_mul((this.width / 2), this.right));
+        // Move in the direction of up to calculate the topLeft corner
+        this.topLeft = Vec3.vec_add(Vec3.scalar_mul((this.height / 2), this.up), midLeft);
     }
 
     intersect(ray)
@@ -262,21 +286,83 @@ class Plane extends Entity
                     // Is this point inside the plane's boundaries
                     if (Pheight <= (this.height / 2) && Pwidth <= (this.width / 2))
                     {
-                        return {min: t, max: NaN};
+                        // Which pixel on the plane is it...                                        
+                        // Seems like i'm an idiot. Why not just calculate a vector to the          
+                        // top-left corner of the plane, then caluclate the boundaries from there...
+                        // I do this here now, replace the other calculations with this later!! TODO
+
+                        // Räkna med pixelsize på något sätt :S
+                        // Img.width är hur många pixlar texturen har
+                        let pX = Vec3.vec_length(Vec3.vec_cross(Vec3.vec_sub(P, this.topLeft), this.right)) / crossMag;
+                        let pY = Vec3.vec_length(Vec3.vec_cross(Vec3.vec_sub(P, this.topLeft), this.up)) / crossMag;
+                        //let pZ = Vec3.vec_length(Vec3.vec_cross(Vec3.vec_sub(P, this.topLeft), this.normal)) / crossMag;
+
+                        return {min: t, max: NaN, px: pX, py: pY};
                     }  
                 }
             }
         }
 
-        
-        return {min: NaN, max: NaN};
+        return {min: NaN, max: NaN, px: NaN, py: NaN};
     }
 
     getNormal(P)
     {
-        // Ax + BX + Cx + d = 0 is my equation setup (where d=1).
-        // In this case A, B and C is a normal to this plane
         return Vec3.vec_normalize(this.normal);
+    }
+
+    loadTexture(texturepath)
+    {
+        // Load image
+        let img = new Image();
+        img.src = texturepath;
+
+        let can = document.createElement("canvas");
+        can.width = img.width;
+        can.height = img.height;
+        let context = can.getContext("2d");
+        context.drawImage(img, 0, 0);
+
+        return context.getImageData(0, 0, can.width, can.height);
+    }
+
+    getPixelColor(x, y)
+    {
+        if (this.texture && isNaN(x) == false && isNaN(y) == false)
+        {
+            // Load pixel from texture at image coordinate x,y
+            // DATA: rgbargbargba.. etc..
+            // Modulus för att komma åt "nästa img"
+            //x = x % this.texture.width; 
+            //y = y % this.texture.height;
+            // Flip y-coordinate
+            //y = c.height - y;
+            // Apply the stride (4 elements per pixel)
+            //let index = ((x * 4) + (y * (this.texture.width * 4)));
+
+            // Multiply this.color with pixel value from image
+            //return new Color(this.texture.data[index] * this.color.r, this.texture.data[index+1] * this.color.g, this.texture.data[index+2] * this.color.b, this.texture.data[index+3] * this.color.a);
+            let texCol = this.generateTexture(x, y, 1.25, new Color(1.0, 1.0, 1.0, 1.0), new Color(0.0, 0.0, 0.0, 1.0));
+            return new Color(texCol.r * this.color.r, texCol.g * this.color.g, texCol.b * this.color.b, texCol.a * this.color.a);
+        }
+        else
+        {
+            // No texture for this obj, return color only
+            return this.color;
+        }
+    }
+
+    generateTexture(x, y, scale, color1, color2)
+    {
+        let sines = Math.sin(scale * x) * Math.sin(scale * y);  // * Math.sin(scale * z);
+        if (sines < 0)
+        {
+            return color1;
+        }
+        else
+        {
+            return color2;
+        }
     }
 }
 
@@ -331,14 +417,14 @@ class Heart extends Entity
                     // Is this point inside the plane's boundaries
                     if (Pheight <= (this.height / 2) && Pwidth <= (this.width / 2))
                     {
-                        return {min: t, max: NaN};
+                        return {min: t, max: NaN, px: Pheight, py: pwidth};
                     }  
                 }
             }
         }
 
         
-        return {min: NaN, max: NaN};
+        return {min: NaN, max: NaN, px: NaN, py: NaN};
     }
 
     getNormal(P)
@@ -448,9 +534,13 @@ function Raytrace(windowWidth, windowHeight, imageBuffer)
 
     // Add entities
     var entities = [];
+    entities.push(new Plane(new Vec3(0.0, -5.0, 10.0), new Vec3(0.0, 1.0, 0.0), new Vec3(0.0, 0.0, 1.0), 50.0, 50.0, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, true));
+    entities.push(new Plane(new Vec3(0.0, 5.0, 10.0), new Vec3(0.0, 1.0, 0.0), new Vec3(0.0, 0.0, 1.0), 50.0, 50.0, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, true));
+    entities.push(new Plane(new Vec3(0.0, 0.0, 50.0), new Vec3(0.0, 0.0, -1.0), new Vec3(0.0, 1.0, 0.0), 70.0, 15.0, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, true));
+    entities.push(new Plane(new Vec3(-31.0, 0.0, 10.0), new Vec3(1.0, 0.0, 0.0), new Vec3(0.0, 1.0, 0.0), 70.0, 15.0, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, true));
+    entities.push(new Plane(new Vec3(31.0, 0.0, 10.0), new Vec3(1.0, 0.0, 0.0), new Vec3(0.0, 1.0, 0.0), 70.0, 15.0, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, true));
     entities.push(new Sphere(new Vec3(0.0, 0.0, 2.0), 0.5, new Color(0.0, 1.0, 0.0, 1.0), Materials.PLASTIC));
-    entities.push(new Plane(new Vec3(-2.0, 0.0, 15.0), new Vec3(0.2, 0.0, -1.0), new Vec3(0.0, 1.0, 0.0), 10.0, 10.0, new Color(1.0, 0.0, 0.0, 1.0), Materials.CHROME));
-
+    
     // Add lights
     var lights = [];
     //lights.push(new PointLight(new Vec3(10.0, -4.0, -10.0), new Color(0.0215, 0.1745, 0.0215, 1.0), new Color(0.85, 0.85, 0.85, 1.0), new Color(0.8, 0.8, 0.8, 1.0)));
@@ -468,8 +558,8 @@ function Raytrace(windowWidth, windowHeight, imageBuffer)
             if (ray.calculateClosestHit(entities))
             {
                 var I = ComputeLighting(ray, camera, lights);
-
-                SetPixel(x, y, imageBuffer.data, ray.objectHit.color.r * I.r, ray.objectHit.color.g * I.g, ray.objectHit.color.b * I.b, ray.objectHit.color.a);
+                var col = ray.objectHit.getPixelColor(ray.objectHitX, ray.objectHitY);
+                SetPixel(x, y, imageBuffer.data, col.r * I.r, col.g * I.g, col.b * I.b, col.a);
             }
         }           
     }
