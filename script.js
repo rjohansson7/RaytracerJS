@@ -604,13 +604,14 @@ async function Main()
     // Add entities
     var entities = [];
     entities.push(new Plane(new Vec3(0.0, -1.0, 25.0), new Vec3(0.0, 1.0, 0.0), new Vec3(0.0, 0.0, 1.0), 50.0, 50.0, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, textures["checkerboard"]));
-    entities.push(new Plane(new Vec3(0.0, 20.0, 50.0), new Vec3(0.0, 0.0, -1.0), new Vec3(0.0, 1.0, 0.0), 50.0, 50.0, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, textures["apple"]));
+    entities.push(new Plane(new Vec3(0.0, 25.0, 50.0), new Vec3(0.0, 0.0, -1.0), new Vec3(0.0, 1.0, 0.0), 50.0, 50.0, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, textures["apple"]));
     entities.push(new Sphere(new Vec3(0.0, -0.5, 3.0), 0.5, new Color(0.0, 1.0, 0.0, 1.0), Materials.PLASTIC));
+    entities.push(new Sphere(new Vec3(-2.0, -0.5, 4.0), 0.5, new Color(1.0, 1.0, 0.0, 1.0), Materials.CHROME));
     
     // Add lights
     var lights = [];
-    //lights.push(new PointLight(new Vec3(10.0, -4.0, -10.0), new Color(0.0215, 0.1745, 0.0215, 1.0), new Color(0.85, 0.85, 0.85, 1.0), new Color(0.8, 0.8, 0.8, 1.0)));
-    lights.push(new PointLight(new Vec3(10.0, 4.0, -10.0), new Color(1.0, 1.0, 1.0, 1.0), new Color(1.0, 1.0, 1.0, 1.0), new Color(1.0, 1.0, 1.0, 1.0)));
+    //lights.push(new PointLight(new Vec3(10.0, 4.0, -10.0), new Color(0.0215, 0.0215, 0.0215, 1.0), new Color(0.85, 0.85, 0.85, 1.0), new Color(0.8, 0.8, 0.8, 1.0)));
+    lights.push(new PointLight(new Vec3(10.0, 4.0, -10.0), new Color(0.1, 0.1, 0.1, 1.0), new Color(1.0, 1.0, 1.0, 1.0), new Color(1.0, 1.0, 1.0, 1.0)));
     
     // Setup the camera
     var camera = new Camera(new Vec3(0.0, 0.0, 0.0), new Vec3(0.0, 0.0, 1.0), new Vec3(0.0, 1.0, 0.0), 90, c.width, c.height); //fov ? Math.PI / 2
@@ -713,7 +714,13 @@ function ComputeLighting(ray, camera, lights, entities)
                     Ip.g += diffuseG + specularG;
                     Ip.b += diffuseB + specularB;
                 }
-                    
+                else
+                {
+                    // Some light should hit // 0.05
+                    Ip.r += Math.max(light.ambient.r - 0.05, 0.0);
+                    Ip.g += Math.max(light.ambient.g - 0.05, 0.0);
+                    Ip.b += Math.max(light.ambient.b - 0.05, 0.0);
+                }
                 break;
             default:
                 break;

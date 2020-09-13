@@ -3,7 +3,6 @@ Simple raytracer written in javascript
 
 ## TODO
 - Reflection
-- Shadows
 - Refraction
 - Texture mapping (How do i map texture to mesh...)
 - And more.. maybe
@@ -19,6 +18,11 @@ Start-Process "C:\Program Files\Firefox Developer Edition\firefox.exe" -Argument
 
 ## Math
 #### This is all temporary, will write a more detailed wiki for this project later
+* [Relf/Refra](https://www.scratchapixel.com/lessons/3d-basic-rendering/introduction-to-ray-tracing/adding-reflection-and-refraction)
+* [Snell's law](https://en.wikipedia.org/wiki/Snell%27s_law#Vector_form)
+* [Fresnel](https://en.wikipedia.org/wiki/Fresnel_equations)
+* [Law of reflection](https://en.wikipedia.org/wiki/Specular_reflection)
+* Shadows - Simply send a ray from each hitpoint towards the light sources. If that ray intersects with any object, the point is in shadow. Here i do not do any light calculation, i simply use the lights ambient for this point. 
 * Plane checkerboard procedural texture (sin(scale * x) * sin(scale * y))
 * [Ray calculation](https://en.wikipedia.org/wiki/Ray_tracing_(graphics)#Calculate_rays_for_rectangular_viewport)
 * [Ray-sphere inersection](https://en.wikipedia.org/wiki/Ray_tracing_(graphics)#Example)
