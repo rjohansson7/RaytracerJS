@@ -87,7 +87,7 @@ class Ray
       //this.objectHitZ = NaN;
     }
 
-    calculateClosestHit(entities)
+    calculateClosestHit(entities, avoid = null)
     {
         // Reset hit variables
         this.closestHit = Infinity;
@@ -99,18 +99,21 @@ class Ray
         // Test intersection against each entity
         entities.forEach(entity => 
         {
-            var test = entity.intersect(this);
-            if (isNaN(test.min) == false)
+            if (entity != avoid)
             {
-                // Since a ray may hit a sphere twice i save both the close and the far hit
-                if (test.min < this.closestHit)
+                var test = entity.intersect(this);
+                if (isNaN(test.min) == false)
                 {
-                    this.closestHit = test.min;
-                    this.farthestHit = test.max;
-                    this.objectHit = entity;
-                    this.objectHitX = test.px;
-                    this.objectHitY = test.py;
-                    //this.objectHitZ = test.pz;
+                    // Since a ray may hit a sphere twice i save both the close and the far hit
+                    if (test.min < this.closestHit && test.min > 0)
+                    {
+                        this.closestHit = test.min;
+                        this.farthestHit = test.max;
+                        this.objectHit = entity;
+                        this.objectHitX = test.px;
+                        this.objectHitY = test.py;
+                        //this.objectHitZ = test.pz;
+                    }
                 }
             }
         });
@@ -125,7 +128,7 @@ class Ray
     }
 
     // Calculates if any hit, faster for shadows than calculating closest hit
-    calculateIfHit(entities, avoid)
+    calculateIfHit(maxDistance, entities, avoid)
     {
         // Test intersection against each entity
         let hit = false;
@@ -136,8 +139,11 @@ class Ray
                 var test = entity.intersect(this);
                 if (isNaN(test.min) == false)
                 {
-                    hit = true;
-                    return;
+                    if (test.min < maxDistance)
+                    {
+                        hit = true;
+                        return;
+                    }
                 }
             }
         });
@@ -267,19 +273,21 @@ const Materials= {
 
 class Entity
 {
-    constructor(center, color, material)
+    constructor(center, color, material, reflectionAmount, affectedByLight)
     {
         this.center = center;
         this.color = color;
         this.material = material;
+        this.reflectionAmount = reflectionAmount;
+        this.affectedByLight = affectedByLight;
     }
 }
 
 class Sphere extends Entity
 {
-    constructor(center, radius, color, material)
+    constructor(center, radius, color, material, reflectionAmount, affectedByLight)
     {
-        super(center, color, material);
+        super(center, color, material, reflectionAmount, affectedByLight);
         this.radius = radius;
     }
 
@@ -326,9 +334,9 @@ class Sphere extends Entity
 
 class Plane extends Entity
 {
-    constructor(center, normal, up, width, height, color, material, texture = null) // (botLeft, topRight, color, material)
+    constructor(center, normal, up, width, height, color, material, reflectionAmount, affectedByLight, texture = null) // (botLeft, topRight, color, material)
     {
-        super(center, color, material);
+        super(center, color, material, reflectionAmount, affectedByLight);
         this.normal = Vec3.vec_normalize(normal);
         this.up = Vec3.vec_normalize(up);
         this.width = width;
@@ -455,9 +463,9 @@ class Plane extends Entity
 
 class Heart extends Entity
 {
-    constructor(center, normal, up, width, height, color, material) // (botLeft, topRight, color, material)
+    constructor(center, normal, up, width, height, color, material, reflectionAmount, affectedByLight) // (botLeft, topRight, color, material)
     {
-        super(center, color, material);
+        super(center, color, material, reflectionAmount, affectedByLight);
         this.normal = Vec3.vec_normalize(normal);
         this.up = Vec3.vec_normalize(up);
         this.width = width;
@@ -574,6 +582,8 @@ class Camera
 
 // GLOBAL
 var c = document.getElementById("myCanvas");
+c.width = window.innerWidth - 20;
+c.height = window.innerHeight - 25;
 Main();
 
 // FUNCTIONS
@@ -598,26 +608,50 @@ async function Main()
     textures["apple"] = new TextureImage();
     await textures["apple"].LoadTexture("./textures/apple.jpg");
 
+    // Sky textures
+    textures["top"] = new TextureImage();
+    await textures["top"].LoadTexture("./textures/space/sb_space_top.png");
+    textures["front"] = new TextureImage();
+    await textures["front"].LoadTexture("./textures/space/sb_space_front.png");
+    textures["back"] = new TextureImage();
+    await textures["back"].LoadTexture("./textures/space/sb_space_back.png");
+    textures["left"] = new TextureImage();
+    await textures["left"].LoadTexture("./textures/space/sb_space_left.png");
+    textures["right"] = new TextureImage();
+    await textures["right"].LoadTexture("./textures/space/sb_space_right.png");
+
     textures["checkerboard"] = new TextureProcedural(20, new Color(1.0, 1.0, 1.0, 1.0), new Color(0.0, 0.0, 0.0, 1.0));
 
     
     // Add entities
     var entities = [];
-    entities.push(new Plane(new Vec3(0.0, -1.0, 25.0), new Vec3(0.0, 1.0, 0.0), new Vec3(0.0, 0.0, 1.0), 50.0, 50.0, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, textures["checkerboard"]));
-    entities.push(new Plane(new Vec3(0.0, 25.0, 50.0), new Vec3(0.0, 0.0, -1.0), new Vec3(0.0, 1.0, 0.0), 50.0, 50.0, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, textures["apple"]));
-    entities.push(new Sphere(new Vec3(0.0, -0.5, 3.0), 0.5, new Color(0.0, 1.0, 0.0, 1.0), Materials.PLASTIC));
-    entities.push(new Sphere(new Vec3(-2.0, -0.5, 4.0), 0.5, new Color(1.0, 1.0, 0.0, 1.0), Materials.CHROME));
+    // Floor
+    entities.push(new Plane(new Vec3(0.0, 0.0, 0.0), new Vec3(0.0, 1.0, 0.0), new Vec3(0.0, 0.0, 1.0), 100.0, 100.0, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, true, textures["checkerboard"]));
+    // Walls
+        // Front
+    entities.push(new Plane(new Vec3(0.0, 25.0, 50.0), new Vec3(0.0, 0.0, -1.0), new Vec3(0.0, 1.0, 0.0), 100.0, 50.0, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, false, textures["front"]));
+        // Back
+    entities.push(new Plane(new Vec3(0.0, 25.0, -50.0), new Vec3(0.0, 0.0, 1.0), new Vec3(0.0, 1.0, 0.0), 100.0, 50.0, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, false, textures["back"]));
+        // Left
+    entities.push(new Plane(new Vec3(50.0, 25.0, 0.0), new Vec3(-1.0, 0.0, 0.0), new Vec3(0.0, 1.0, 0.0), 100.0, 50.0, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, false, textures["left"]));
+        // Right
+    entities.push(new Plane(new Vec3(-50.0, 25.0, 0.0), new Vec3(1.0, 0.0, 0.0), new Vec3(0.0, 1.0, 0.0), 100.0, 50.0, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, false, textures["right"]));
+    // Roof
+    entities.push(new Plane(new Vec3(0.0, 50.0, 0.0), new Vec3(0.0, -1.0, 0.0), new Vec3(0.0, 0.0, -1.0), 100.0, 100.0, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, false, textures["top"]));
+    // Other 
+    entities.push(new Sphere(new Vec3(0.0, 0.5, 4.0), 0.5, new Color(0.0, 1.0, 0.0, 1.0), Materials.PLASTIC, 0.1, true));
+    entities.push(new Sphere(new Vec3(-2.0, 0.5, 4.0), 0.5, new Color(1.0, 1.0, 0.0, 1.0), Materials.CHROME, 1.0, true));
     
     // Add lights
     var lights = [];
     //lights.push(new PointLight(new Vec3(10.0, 4.0, -10.0), new Color(0.0215, 0.0215, 0.0215, 1.0), new Color(0.85, 0.85, 0.85, 1.0), new Color(0.8, 0.8, 0.8, 1.0)));
-    lights.push(new PointLight(new Vec3(10.0, 4.0, -10.0), new Color(0.1, 0.1, 0.1, 1.0), new Color(1.0, 1.0, 1.0, 1.0), new Color(1.0, 1.0, 1.0, 1.0)));
+    lights.push(new PointLight(new Vec3(10.0, 5.0, -10.0), new Color(0.1, 0.1, 0.1, 1.0), new Color(1.0, 1.0, 1.0, 1.0), new Color(1.0, 1.0, 1.0, 1.0)));
     
     // Setup the camera
-    var camera = new Camera(new Vec3(0.0, 0.0, 0.0), new Vec3(0.0, 0.0, 1.0), new Vec3(0.0, 1.0, 0.0), 90, c.width, c.height); //fov ? Math.PI / 2
+    var camera = new Camera(new Vec3(0.0, 1.0, 0.0), new Vec3(0.0, 0.0, 999.0), new Vec3(0.0, 1.0, 0.0), 90, c.width, c.height); //fov ? Math.PI / 2
     
     // Start Ray tracing
-    Raytrace(c.width, c.height, imageData, entities, lights, camera);
+    ComputeImage(c.width, c.height, imageData, entities, lights, camera);
 
     // Draw
     ctx.putImageData(imageData, 0, 0);
@@ -637,7 +671,7 @@ function SetPixel(x, y, buffer, newRed, newGreen, newBlue, newAlpha)
     buffer[index + 3] = newAlpha * 255.0;
 }
 
-function Raytrace(windowWidth, windowHeight, imageBuffer, entities, lights, camera)
+function ComputeImage(windowWidth, windowHeight, imageBuffer, entities, lights, camera)
 {
     // Run the ray tracing calculations for every pixel
     for (let y = 0; y < camera.windowHeight; y++) 
@@ -646,31 +680,65 @@ function Raytrace(windowWidth, windowHeight, imageBuffer, entities, lights, came
         {
             // Get a ray for this pixel
             var ray = camera.GetPixelRay(x, y);
-
-            // Test intersection against each entity
-            if (ray.calculateClosestHit(entities))
-            {
-                var I = ComputeLighting(ray, camera, lights, entities);
-                var col = ray.objectHit.getPixelColor(ray.objectHitX, ray.objectHitY);
-                SetPixel(x, y, imageBuffer.data, col.r * I.r, col.g * I.g, col.b * I.b, col.a);
-            }
+            var color = Raytrace(ray, entities, lights, camera, 2);
+            
+            SetPixel(x, y, imageBuffer.data, color.r, color.g, color.b, color.a);
         }           
     }
 }
 
-function ComputeLighting(ray, camera, lights, entities)
+function Raytrace(ray, entities, lights, camera, depth, avoid = null)
 {
-    var Ip = {r: 0.0, g: 0.0, b: 0.0};
-    var Ia = {r: 0.0, g: 0.0, b: 0.0};
+    if (depth <= 0)
+    {
+        return new Color(0.0, 0.0, 0.0, 1.0);
+    }
 
-    // Calculate the point of the hit on the object
-    var P = Vec3.vec_add(ray.origin, Vec3.scalar_mul(ray.closestHit, ray.direction)); 
-                    
-    // Calculate the normal for the closest point
-    var N = ray.objectHit.getNormal(P);
+    // Test intersection against each entity
+    if (ray.calculateClosestHit(entities, avoid))
+    {
+        // Backgrpund wont be affected by light
+        if (ray.objectHit.affectedByLight)
+        {
+            // Calculate the point of the hit on the object
+            var P = Vec3.vec_add(ray.origin, Vec3.scalar_mul(ray.closestHit, ray.direction)); 
+            
+            // Calculate the normal for the closest point
+            var N = ray.objectHit.getNormal(P);
+            
+            // Calculate the viewer direction
+            var V = Vec3.vec_normalize(Vec3.vec_sub(camera.position, P));
+            
+            // Get object color for this pixel, from texture or static color
+            var objectColor = ray.objectHit.getPixelColor(ray.objectHitX, ray.objectHitY);
+            
+            var lightColor = ComputeLighting(ray, P, N, V, lights, entities);  
+            
+            var reflectionColor = ComputeReflection(P, ray, entities, lights, camera, depth);
+            
+            var outColor = new Color(0.0, 0.0, 0.0, 1.0);
+            outColor.r += objectColor.r * (lightColor.r + reflectionColor.r);
+            outColor.g += objectColor.g * (lightColor.g + reflectionColor.g);
+            outColor.b += objectColor.b * (lightColor.b + reflectionColor.b);
+            
+            return outColor; 
+        }
+        else
+        {
+            // object color
+            return ray.objectHit.getPixelColor(ray.objectHitX, ray.objectHitY);
+        }
+    }
+    else
+    {
+        return new Color(0.0, 0.0, 0.0, 1.0);
+    }
+}
 
-    // Calculate the viewer direction
-    var V = Vec3.vec_normalize(Vec3.vec_sub(camera.position, P)); 
+function ComputeLighting(ray, P, N, V, lights, entities)
+{
+    var Ip = new Color(0.0, 0.0, 0.0, 1.0);
+    var Ia = new Color(0.0, 0.0, 0.0, 1.0);
 
     lights.forEach(light => {
         switch (light.type) 
@@ -736,13 +804,17 @@ function ComputeLighting(ray, camera, lights, entities)
 
 function CheckShadow(point, light, entities, avoid)
 {
+    let pointToLight = Vec3.vec_sub(light.position, point);
     // Calculate the direction from this point, towards the light
-    let dir = Vec3.vec_normalize(Vec3.vec_sub(light.position, point));
+    let dir = Vec3.vec_normalize(pointToLight);
+    // Distance between light and point
+    let distance = Vec3.vec_length(pointToLight);
     // Send a ray from this point, towards the light source
     let shadowRay = new Ray(point, dir);
 
+
     // Does the ray hit something?
-    if (shadowRay.calculateIfHit(entities, avoid) == true)
+    if (shadowRay.calculateIfHit(distance, entities, avoid) == true)
     {
         // In this case the point is not visible for this light source
         return true;
@@ -750,4 +822,16 @@ function CheckShadow(point, light, entities, avoid)
     
     // The ray didn't hit anything, and is therefore visible for the light
     return false;
+}
+
+function ComputeReflection(point, incidentRay, entities, lights, camera, depth)
+{
+    // R = I - 2 * dot(N, I) * N
+    let normal = incidentRay.objectHit.getNormal(point);
+    let reflectionDir = Vec3.vec_normalize(Vec3.vec_sub(incidentRay.direction, Vec3.scalar_mul(2.0 * Vec3.vec_dot(normal, incidentRay.direction), normal)));
+    let reflectionRay = new Ray(point, reflectionDir);
+    let col = Raytrace(reflectionRay, entities, lights, camera, depth - 1, incidentRay.objectHit);
+
+    let reflAmount = incidentRay.objectHit.reflectionAmount;
+    return new Color(col.r * reflAmount, col.g * reflAmount, col.b * reflAmount, 1.0);
 }

@@ -2,7 +2,7 @@
 Simple raytracer written in javascript
 
 ## TODO
-- Reflection
+- Better skybox (maybe smaller box, or sphere instead..)
 - Refraction
 - Texture mapping (How do i map texture to mesh...)
 - And more.. maybe
