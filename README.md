@@ -2,6 +2,7 @@
 Simple raytracer written in javascript
 
 ## TODO
+- Is the sphere texture correct? Rotate the sphere
 - Better skybox (maybe smaller box, or sphere instead..)
 - Refraction
 - Texture mapping (How do i map texture to mesh...)

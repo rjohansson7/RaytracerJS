@@ -114,6 +114,16 @@ class Ray
                         this.objectHitY = test.py;
                         //this.objectHitZ = test.pz;
                     }
+                    else if (test.max > 0) // for skysphere i want to use the farthest hit if test.min < 0 since we always will hit the sphere twice (because we are inside it)
+                    {
+                        // TODO: THIS MAKES IT FUCKED SOMETIMES FOR OBJECTS IN FRONT OF OTHERS (other than skysphere)
+                        // MAYBE REVERSE SPHERE INTERSECTION?
+                        this.closestHit = test.max;
+                        this.farthestHit = test.min;
+                        this.objectHit = entity;
+                        this.objectHitX = test.px;
+                        this.objectHitY = test.py;
+                    }
                 }
             }
         });
@@ -134,7 +144,7 @@ class Ray
         let hit = false;
         entities.forEach(entity => 
         {
-            if (entity != avoid)
+            if (entity != avoid && entity.affectedByLight == true) //avoid itself and skybox entities
             {
                 var test = entity.intersect(this);
                 if (isNaN(test.min) == false)
@@ -285,10 +295,12 @@ class Entity
 
 class Sphere extends Entity
 {
-    constructor(center, radius, color, material, reflectionAmount, affectedByLight)
+    constructor(center, radius, color, material, reflectionAmount, affectedByLight, texture = null, reverse = false)
     {
         super(center, color, material, reflectionAmount, affectedByLight);
         this.radius = radius;
+        this.reverse = reverse;
+        this.texture = texture;
     }
 
     intersect(ray)
@@ -323,12 +335,42 @@ class Sphere extends Entity
 
     getNormal(P)
     {
-        return Vec3.vec_normalize(Vec3.vec_sub(P, this.center));
+        let normal = Vec3.vec_normalize(Vec3.vec_sub(P, this.center));
+        if (this.reverse)
+        {
+            return Vec3.vec_sub(new Vec3(0.0, 0.0, 0.0), normal);
+        }
+
+        return normal;
     }
 
-    getPixelColor(x, y)
+    getPixelColor(x= null, y = null, P = null)
     {
-        return this.color;
+        if (this.texture != null && P != null)
+        {
+            let normal = this.getNormal(P);
+
+            let u = 0.5 + Math.atan2(normal.z, normal.x) / (2*Math.PI);
+            let v = 0.5 - Math.asin(normal.y) / Math.PI;
+
+            //let width = u * this.texture.width;
+            //let height = v * this.texture.height;        
+
+            //let offset = height + (width * this.texture.width);
+
+            // KÖR MINA GREJER
+            let xx = Math.round(u * (this.texture.width - 1)) % (this.texture.width - 1); // p är koordinaten i modelSpace
+            let yy = Math.round(v * (this.texture.height - 1)) % (this.texture.height - 1);
+
+            let offset = ((xx * 4) + (yy * (this.texture.width * 4)));
+
+            let texCol = new Color(this.texture.data[offset], this.texture.data[offset+1], this.texture.data[offset+2], this.texture.data[offset+3]);
+            return new Color(texCol.r / 255, texCol.g / 255, texCol.b / 255, texCol.a / 255);
+        }
+        else
+        {
+            return this.color;
+        }
     }
 }
 
@@ -415,7 +457,7 @@ class Plane extends Entity
         return Vec3.vec_normalize(this.normal);
     }
 
-    getPixelColor(x, y)
+    getPixelColor(x, y, P = null)
     {
         if (this.texture && isNaN(x) == false && isNaN(y) == false)
         {
@@ -528,6 +570,11 @@ class Heart extends Entity
         // In this case A, B and C is a normal to this plane
         return Vec3.vec_normalize(this.normal);
     }
+
+    getPixelColor(x, y, P = null)
+    {
+        return this.color;
+    }
 }
 
 class Camera
@@ -610,37 +657,34 @@ async function Main()
 
     // Sky textures
     textures["top"] = new TextureImage();
-    await textures["top"].LoadTexture("./textures/space/sb_space_top.png");
+    await textures["top"].LoadTexture("./textures/space2/top.jpg");
+    textures["bot"] = new TextureImage();
+    await textures["bot"].LoadTexture("./textures/space2/bot.jpg");
     textures["front"] = new TextureImage();
-    await textures["front"].LoadTexture("./textures/space/sb_space_front.png");
+    await textures["front"].LoadTexture("./textures/space2/front.jpg");
     textures["back"] = new TextureImage();
-    await textures["back"].LoadTexture("./textures/space/sb_space_back.png");
+    await textures["back"].LoadTexture("./textures/space2/back.jpg");
     textures["left"] = new TextureImage();
-    await textures["left"].LoadTexture("./textures/space/sb_space_left.png");
+    await textures["left"].LoadTexture("./textures/space2/left.jpg");
     textures["right"] = new TextureImage();
-    await textures["right"].LoadTexture("./textures/space/sb_space_right.png");
+    await textures["right"].LoadTexture("./textures/space2/right.jpg");
+
+    textures["world"] = new TextureImage();
+    await textures["world"].LoadTexture("./textures/world.png");
 
     textures["checkerboard"] = new TextureProcedural(20, new Color(1.0, 1.0, 1.0, 1.0), new Color(0.0, 0.0, 0.0, 1.0));
 
     
     // Add entities
     var entities = [];
+    CreateSkybox(100, 100, entities, textures);
+    //CreateSkysphere(9, entities, textures);
     // Floor
-    entities.push(new Plane(new Vec3(0.0, 0.0, 0.0), new Vec3(0.0, 1.0, 0.0), new Vec3(0.0, 0.0, 1.0), 100.0, 100.0, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, true, textures["checkerboard"]));
-    // Walls
-        // Front
-    entities.push(new Plane(new Vec3(0.0, 25.0, 50.0), new Vec3(0.0, 0.0, -1.0), new Vec3(0.0, 1.0, 0.0), 100.0, 50.0, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, false, textures["front"]));
-        // Back
-    entities.push(new Plane(new Vec3(0.0, 25.0, -50.0), new Vec3(0.0, 0.0, 1.0), new Vec3(0.0, 1.0, 0.0), 100.0, 50.0, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, false, textures["back"]));
-        // Left
-    entities.push(new Plane(new Vec3(50.0, 25.0, 0.0), new Vec3(-1.0, 0.0, 0.0), new Vec3(0.0, 1.0, 0.0), 100.0, 50.0, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, false, textures["left"]));
-        // Right
-    entities.push(new Plane(new Vec3(-50.0, 25.0, 0.0), new Vec3(1.0, 0.0, 0.0), new Vec3(0.0, 1.0, 0.0), 100.0, 50.0, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, false, textures["right"]));
-    // Roof
-    entities.push(new Plane(new Vec3(0.0, 50.0, 0.0), new Vec3(0.0, -1.0, 0.0), new Vec3(0.0, 0.0, -1.0), 100.0, 100.0, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, false, textures["top"]));
+    entities.push(new Plane(new Vec3(0.0, 0.0, 0.0), new Vec3(0.0, 1.0, 0.0), new Vec3(0.0, 0.0, 1.0), 6, 4, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, true, textures["checkerboard"]));
     // Other 
-    entities.push(new Sphere(new Vec3(0.0, 0.5, 4.0), 0.5, new Color(0.0, 1.0, 0.0, 1.0), Materials.PLASTIC, 0.1, true));
-    entities.push(new Sphere(new Vec3(-2.0, 0.5, 4.0), 0.5, new Color(1.0, 1.0, 0.0, 1.0), Materials.CHROME, 1.0, true));
+    entities.push(new Sphere(new Vec3(1.0, 0.5, 0.0), 0.5, new Color(0.0, 1.0, 0.0, 1.0), Materials.PLASTIC, 0.1, true));
+    entities.push(new Sphere(new Vec3(-1.0, 0.5, 0.0), 0.5, new Color(1.0, 1.0, 0.0, 1.0), Materials.CHROME, 0.8, true));
+    entities.push(new Sphere(new Vec3(0.0, 2.5, 0.5), 0.5, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.0, true, textures["world"]));
     
     // Add lights
     var lights = [];
@@ -648,13 +692,34 @@ async function Main()
     lights.push(new PointLight(new Vec3(10.0, 5.0, -10.0), new Color(0.1, 0.1, 0.1, 1.0), new Color(1.0, 1.0, 1.0, 1.0), new Color(1.0, 1.0, 1.0, 1.0)));
     
     // Setup the camera
-    var camera = new Camera(new Vec3(0.0, 1.0, 0.0), new Vec3(0.0, 0.0, 999.0), new Vec3(0.0, 1.0, 0.0), 90, c.width, c.height); //fov ? Math.PI / 2
+    var camera = new Camera(new Vec3(0.0, 2.0, -5.0), new Vec3(0.0, 0.0, 4.0), new Vec3(0.0, 1.0, 0.0), 90, c.width, c.height); //fov ? Math.PI / 2
     
     // Start Ray tracing
-    ComputeImage(c.width, c.height, imageData, entities, lights, camera);
+    ComputeImage(imageData, entities, lights, camera);
 
     // Draw
     ctx.putImageData(imageData, 0, 0);
+}
+
+function CreateSkysphere(radius, entities, textures)
+{
+    entities.push(new Sphere(new Vec3(0.0, 0.0, 0.0), radius, new Color(1.0, 1.0, 1.0, 1.0), Materials.NEUTRAL, 0.0, false, textures["world"], true));
+}
+
+function CreateSkybox(width, height, entities, textures)
+{
+    // Floor
+    entities.push(new Plane(new Vec3(0.0, -(height / 2), 0.0), new Vec3(0.0, 1.0, 0.0), new Vec3(0.0, 0.0, 1.0), width, width, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, false, textures["bot"]));
+    // Front
+    entities.push(new Plane(new Vec3(0.0, 0.0, width / 2), new Vec3(0.0, 0.0, -1.0), new Vec3(0.0, 1.0, 0.0), width, height, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, false, textures["front"]));
+    // Back
+    entities.push(new Plane(new Vec3(0.0, 0.0, -(width / 2)), new Vec3(0.0, 0.0, 1.0), new Vec3(0.0, 1.0, 0.0), width, height, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, false, textures["back"]));
+    // Left
+    entities.push(new Plane(new Vec3(width / 2, 0.0, 0.0), new Vec3(-1.0, 0.0, 0.0), new Vec3(0.0, 1.0, 0.0), width, height, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, false, textures["left"]));
+    // Right
+    entities.push(new Plane(new Vec3(-(width / 2), 0.0, 0.0), new Vec3(1.0, 0.0, 0.0), new Vec3(0.0, 1.0, 0.0), width, height, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, false, textures["right"]));
+    // Roof
+    entities.push(new Plane(new Vec3(0.0, height / 2, 0.0), new Vec3(0.0, -1.0, 0.0), new Vec3(0.0, 0.0, -1.0), width, width, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, false, textures["top"]));
 }
 
 function SetPixel(x, y, buffer, newRed, newGreen, newBlue, newAlpha)
@@ -671,7 +736,7 @@ function SetPixel(x, y, buffer, newRed, newGreen, newBlue, newAlpha)
     buffer[index + 3] = newAlpha * 255.0;
 }
 
-function ComputeImage(windowWidth, windowHeight, imageBuffer, entities, lights, camera)
+function ComputeImage(imageBuffer, entities, lights, camera)
 {
     // Run the ray tracing calculations for every pixel
     for (let y = 0; y < camera.windowHeight; y++) 
@@ -710,7 +775,7 @@ function Raytrace(ray, entities, lights, camera, depth, avoid = null)
             var V = Vec3.vec_normalize(Vec3.vec_sub(camera.position, P));
             
             // Get object color for this pixel, from texture or static color
-            var objectColor = ray.objectHit.getPixelColor(ray.objectHitX, ray.objectHitY);
+            var objectColor = ray.objectHit.getPixelColor(ray.objectHitX, ray.objectHitY, P);
             
             var lightColor = ComputeLighting(ray, P, N, V, lights, entities);  
             
@@ -726,7 +791,8 @@ function Raytrace(ray, entities, lights, camera, depth, avoid = null)
         else
         {
             // object color
-            return ray.objectHit.getPixelColor(ray.objectHitX, ray.objectHitY);
+            var P = Vec3.vec_add(ray.origin, Vec3.scalar_mul(ray.closestHit, ray.direction)); 
+            return ray.objectHit.getPixelColor(ray.objectHitX, ray.objectHitY, P);
         }
     }
     else
