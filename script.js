@@ -1,5 +1,9 @@
 //import gauss from './gauss';
 
+Math.clamp = function(a, b, c){
+    Math.max(b,Math.min(c,a));
+}
+
 // CLASSES
 class Color
 {
@@ -266,30 +270,33 @@ class TextureImage extends Texture
 
 class Material 
 {
-    constructor(ambient, diffuse, specular, shininess)
+    constructor(ambient, diffuse, specular, shininess, reflectionAmount, refractionIndex, affectedByLight)
     {
         this.ambient = ambient;
         this.diffuse = diffuse;
         this.specular = specular;
         this.shininess = shininess;
+        this.reflectionAmount = reflectionAmount;
+        this.refractionIndex = refractionIndex;
+        this.affectedByLight = affectedByLight;
     }
 }
 
 const Materials= {
-    NEUTRAL: new Material(new Color(0.2, 0.2, 0.2, 1.0), new Color(0.8, 0.8, 0.8, 1.0), new Color(0.0225, 0.0225, 0.0225, 1.0), 12.8), 
-    PLASTIC: new Material(new Color(0.0, 0.1, 0.06, 1.0), new Color(0.0, 0.50980392, 0.50980392, 1.0), new Color(0.50196078, 0.50196078, 0.50196078, 1.0), 128.0),
-    CHROME: new Material(new Color(0.25, 0.25, 0.25, 1.0), new Color(0.4, 0.4, 0.4, 1.0), new Color(0.774597, 0.774597, 0.774597, 1.0), 0.6 * 128.0)
+    NEUTRAL: new Material(new Color(0.2, 0.2, 0.2, 1.0), new Color(0.8, 0.8, 0.8, 1.0), new Color(0.0225, 0.0225, 0.0225, 1.0), 12.8, 0.1, 0.0, true), 
+    PLASTIC: new Material(new Color(0.0, 0.1, 0.06, 1.0), new Color(0.0, 0.50980392, 0.50980392, 1.0), new Color(0.50196078, 0.50196078, 0.50196078, 1.0), 128.0, 0.4, 0.0, true),
+    CHROME: new Material(new Color(0.25, 0.25, 0.25, 1.0), new Color(0.4, 0.4, 0.4, 1.0), new Color(0.774597, 0.774597, 0.774597, 1.0), 0.6 * 128.0, 0.8, 0.0, true),
+    GLASS: new Material(new Color(0.25, 0.25, 0.25, 1.0), new Color(0.4, 0.4, 0.4, 1.0), new Color(0.774597, 0.774597, 0.774597, 1.0), 0.6 * 128.0, 0.8, 1.5, true),
+    SKYBOX: new Material(new Color(1.0, 1.0, 1.0, 1.0), new Color(1.0, 1.0, 1.0, 1.0), new Color(1.0, 1.0, 1.0, 1.0), 0.6 * 128.0, 0.0, 0.0, false)
 }
 
 class Entity
 {
-    constructor(center, color, material, reflectionAmount, affectedByLight)
+    constructor(center, color, material)
     {
         this.center = center;
         this.color = color;
         this.material = material;
-        this.reflectionAmount = reflectionAmount;
-        this.affectedByLight = affectedByLight;
     }
 }
 
@@ -680,11 +687,11 @@ async function Main()
     CreateSkybox(100, 100, entities, textures);
     //CreateSkysphere(9, entities, textures);
     // Floor
-    entities.push(new Plane(new Vec3(0.0, 0.0, 0.0), new Vec3(0.0, 1.0, 0.0), new Vec3(0.0, 0.0, 1.0), 6, 4, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, true, textures["checkerboard"]));
+    entities.push(new Plane(new Vec3(0.0, 0.0, 0.0), new Vec3(0.0, 1.0, 0.0), new Vec3(0.0, 0.0, 1.0), 6, 4, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, textures["checkerboard"]));
     // Other 
-    entities.push(new Sphere(new Vec3(1.0, 0.5, 0.0), 0.5, new Color(0.0, 1.0, 0.0, 1.0), Materials.PLASTIC, 0.1, true));
-    entities.push(new Sphere(new Vec3(-1.0, 0.5, 0.0), 0.5, new Color(1.0, 1.0, 0.0, 1.0), Materials.CHROME, 0.8, true));
-    entities.push(new Sphere(new Vec3(0.0, 2.5, 0.5), 0.5, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.0, true, textures["world"]));
+    entities.push(new Sphere(new Vec3(1.0, 0.5, 0.0), 0.5, new Color(0.0, 1.0, 0.0, 1.0), Materials.PLASTIC));
+    entities.push(new Sphere(new Vec3(-1.0, 0.5, 0.0), 0.5, new Color(1.0, 1.0, 0.0, 1.0), Materials.CHROME));
+    entities.push(new Sphere(new Vec3(0.0, 2.5, 0.5), 0.5, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, textures["world"]));
     
     // Add lights
     var lights = [];
@@ -703,23 +710,23 @@ async function Main()
 
 function CreateSkysphere(radius, entities, textures)
 {
-    entities.push(new Sphere(new Vec3(0.0, 0.0, 0.0), radius, new Color(1.0, 1.0, 1.0, 1.0), Materials.NEUTRAL, 0.0, false, textures["world"], true));
+    entities.push(new Sphere(new Vec3(0.0, 0.0, 0.0), radius, new Color(1.0, 1.0, 1.0, 1.0), Materials.SKYBOX, textures["world"]));
 }
 
 function CreateSkybox(width, height, entities, textures)
 {
     // Floor
-    entities.push(new Plane(new Vec3(0.0, -(height / 2), 0.0), new Vec3(0.0, 1.0, 0.0), new Vec3(0.0, 0.0, 1.0), width, width, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, false, textures["bot"]));
+    entities.push(new Plane(new Vec3(0.0, -(height / 2), 0.0), new Vec3(0.0, 1.0, 0.0), new Vec3(0.0, 0.0, 1.0), width, width, new Color(1.0, 1.0, 1.0, 1.0), Materials.SKYBOX, textures["bot"]));
     // Front
-    entities.push(new Plane(new Vec3(0.0, 0.0, width / 2), new Vec3(0.0, 0.0, -1.0), new Vec3(0.0, 1.0, 0.0), width, height, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, false, textures["front"]));
+    entities.push(new Plane(new Vec3(0.0, 0.0, width / 2), new Vec3(0.0, 0.0, -1.0), new Vec3(0.0, 1.0, 0.0), width, height, new Color(1.0, 1.0, 1.0, 1.0), Materials.SKYBOX, textures["front"]));
     // Back
-    entities.push(new Plane(new Vec3(0.0, 0.0, -(width / 2)), new Vec3(0.0, 0.0, 1.0), new Vec3(0.0, 1.0, 0.0), width, height, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, false, textures["back"]));
+    entities.push(new Plane(new Vec3(0.0, 0.0, -(width / 2)), new Vec3(0.0, 0.0, 1.0), new Vec3(0.0, 1.0, 0.0), width, height, new Color(1.0, 1.0, 1.0, 1.0), Materials.SKYBOX, textures["back"]));
     // Left
-    entities.push(new Plane(new Vec3(width / 2, 0.0, 0.0), new Vec3(-1.0, 0.0, 0.0), new Vec3(0.0, 1.0, 0.0), width, height, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, false, textures["left"]));
+    entities.push(new Plane(new Vec3(width / 2, 0.0, 0.0), new Vec3(-1.0, 0.0, 0.0), new Vec3(0.0, 1.0, 0.0), width, height, new Color(1.0, 1.0, 1.0, 1.0), Materials.SKYBOX, textures["left"]));
     // Right
-    entities.push(new Plane(new Vec3(-(width / 2), 0.0, 0.0), new Vec3(1.0, 0.0, 0.0), new Vec3(0.0, 1.0, 0.0), width, height, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, false, textures["right"]));
+    entities.push(new Plane(new Vec3(-(width / 2), 0.0, 0.0), new Vec3(1.0, 0.0, 0.0), new Vec3(0.0, 1.0, 0.0), width, height, new Color(1.0, 1.0, 1.0, 1.0), Materials.SKYBOX, textures["right"]));
     // Roof
-    entities.push(new Plane(new Vec3(0.0, height / 2, 0.0), new Vec3(0.0, -1.0, 0.0), new Vec3(0.0, 0.0, -1.0), width, width, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, 0.2, false, textures["top"]));
+    entities.push(new Plane(new Vec3(0.0, height / 2, 0.0), new Vec3(0.0, -1.0, 0.0), new Vec3(0.0, 0.0, -1.0), width, width, new Color(1.0, 1.0, 1.0, 1.0), Materials.SKYBOX, textures["top"]));
 }
 
 function SetPixel(x, y, buffer, newRed, newGreen, newBlue, newAlpha)
@@ -763,7 +770,7 @@ function Raytrace(ray, entities, lights, camera, depth, avoid = null)
     if (ray.calculateClosestHit(entities, avoid))
     {
         // Backgrpund wont be affected by light
-        if (ray.objectHit.affectedByLight)
+        if (ray.objectHit.material.affectedByLight)
         {
             // Calculate the point of the hit on the object
             var P = Vec3.vec_add(ray.origin, Vec3.scalar_mul(ray.closestHit, ray.direction)); 
@@ -780,6 +787,14 @@ function Raytrace(ray, entities, lights, camera, depth, avoid = null)
             var lightColor = ComputeLighting(ray, P, N, V, lights, entities);  
             
             var reflectionColor = ComputeReflection(P, ray, entities, lights, camera, depth);
+
+            // Refraction
+            var fresnel = ComputeFresnel(ray.direction, N, ray.objectHit.material.refractionIndex);
+            var refractionColor = new Color(0.0, 0.0, 0.0, 1.0);
+            if (fresnel < 1)
+            {
+                refractionColor = ComputeRefraction(ray.direction, N, ray.objectHit.material.refractionIndex);
+            }
             
             var outColor = new Color(0.0, 0.0, 0.0, 1.0);
             outColor.r += objectColor.r * (lightColor.r + reflectionColor.r);
@@ -901,3 +916,62 @@ function ComputeReflection(point, incidentRay, entities, lights, camera, depth)
     let reflAmount = incidentRay.objectHit.reflectionAmount;
     return new Color(col.r * reflAmount, col.g * reflAmount, col.b * reflAmount, 1.0);
 }
+
+function ComputeRefraction(P, I, N, ior, entities, lights)
+{
+    let cosi = Math.clamp(-1, 1, Vec3.vec_dot(I, N)); 
+    let etai = 1, etat = ior; 
+    let n = N;
+
+    if (cosi < 0) 
+    { 
+        cosi = -cosi; 
+    } 
+    else 
+    { 
+        [etai, etat] = [etat, etai];
+        n = Vec3.vec_sub(new Vec3(0.0, 0.0, 0.0), N); 
+    } 
+ 
+    let eta = etai / etat; 
+    let k = 1 - eta * eta * (1 - cosi * cosi); 
+
+    if (k < 0)
+    {
+        return new Color(0.0, 0.0, 0.0, 1.0);
+    }
+    else
+    {
+        let refractionDirection =  Vec3.vec_normalize(Vec3.scalar_add((eta * cosi - Math.sqrt(k)) * n, Vec3.scalar_mul(eta, I)));
+        let refractionRay = new Ray(P, refractionDirection);
+
+        return Raytrace(refractionRay, entities, lights, camera, depth - 1, refractionRay.objectHit);
+    }
+}
+
+void ComputeFresnel(I, N, ior) 
+{ 
+    let cosi = Math.clamp(-1, 1, Vec3.vec_dot(I, N)); 
+    let etai = 1, etat = ior; 
+    if (cosi > 0) 
+    { 
+        [etai, etat] = [etat, etai];
+    }
+
+    // Compute sini using Snell's law
+    let sint = etai / etat * Math.sqrt(Math.max(0, 1 - cosi * cosi)); 
+    // Total internal reflection
+    if (sint >= 1) 
+    { 
+        return 1; 
+    } 
+    else 
+    { 
+        let cost = Math.sqrt(Math.max(0, 1 - sint * sint)); 
+        cosi = Math.abs(cosi);
+        let Rs = ((etat * cosi) - (etai * cost)) / ((etat * cosi) + (etai * cost)); 
+        let Rp = ((etai * cosi) - (etat * cost)) / ((etai * cosi) + (etat * cost)); 
+        
+        return (Rs * Rs + Rp * Rp) / 2; 
+    } 
+} 
