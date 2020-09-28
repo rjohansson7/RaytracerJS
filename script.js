@@ -148,7 +148,7 @@ class Ray
         let hit = false;
         entities.forEach(entity => 
         {
-            if (entity != avoid && entity.affectedByLight == true) //avoid itself and skybox entities
+            if (entity != avoid && entity.material.affectedByLight == true) //avoid itself and skybox entities
             {
                 var test = entity.intersect(this);
                 if (isNaN(test.min) == false)
@@ -302,9 +302,9 @@ class Entity
 
 class Sphere extends Entity
 {
-    constructor(center, radius, color, material, reflectionAmount, affectedByLight, texture = null, reverse = false)
+    constructor(center, radius, color, material, texture = null, reverse = false)
     {
-        super(center, color, material, reflectionAmount, affectedByLight);
+        super(center, color, material);
         this.radius = radius;
         this.reverse = reverse;
         this.texture = texture;
@@ -383,9 +383,9 @@ class Sphere extends Entity
 
 class Plane extends Entity
 {
-    constructor(center, normal, up, width, height, color, material, reflectionAmount, affectedByLight, texture = null) // (botLeft, topRight, color, material)
+    constructor(center, normal, up, width, height, color, material, texture = null) // (botLeft, topRight, color, material)
     {
-        super(center, color, material, reflectionAmount, affectedByLight);
+        super(center, color, material);
         this.normal = Vec3.vec_normalize(normal);
         this.up = Vec3.vec_normalize(up);
         this.width = width;
@@ -512,9 +512,9 @@ class Plane extends Entity
 
 class Heart extends Entity
 {
-    constructor(center, normal, up, width, height, color, material, reflectionAmount, affectedByLight) // (botLeft, topRight, color, material)
+    constructor(center, normal, up, width, height, color, material) // (botLeft, topRight, color, material)
     {
-        super(center, color, material, reflectionAmount, affectedByLight);
+        super(center, color, material);
         this.normal = Vec3.vec_normalize(normal);
         this.up = Vec3.vec_normalize(up);
         this.width = width;
@@ -692,6 +692,7 @@ async function Main()
     entities.push(new Sphere(new Vec3(1.0, 0.5, 0.0), 0.5, new Color(0.0, 1.0, 0.0, 1.0), Materials.PLASTIC));
     entities.push(new Sphere(new Vec3(-1.0, 0.5, 0.0), 0.5, new Color(1.0, 1.0, 0.0, 1.0), Materials.CHROME));
     entities.push(new Sphere(new Vec3(0.0, 2.5, 0.5), 0.5, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, textures["world"]));
+    entities.push(new Sphere(new Vec3(0.0, 0.5, -2.0), 0.5, new Color(1.0, 1.0, 1.0, 1.0), Materials.GLASS));
     
     // Add lights
     var lights = [];
@@ -752,7 +753,7 @@ function ComputeImage(imageBuffer, entities, lights, camera)
         {
             // Get a ray for this pixel
             var ray = camera.GetPixelRay(x, y);
-            var color = Raytrace(ray, entities, lights, camera, 2);
+            var color = Raytrace(ray, entities, lights, camera, 3);
             
             SetPixel(x, y, imageBuffer.data, color.r, color.g, color.b, color.a);
         }           
@@ -789,11 +790,17 @@ function Raytrace(ray, entities, lights, camera, depth, avoid = null)
             var reflectionColor = ComputeReflection(P, ray, entities, lights, camera, depth);
 
             // Refraction
-            var fresnel = ComputeFresnel(ray.direction, N, ray.objectHit.material.refractionIndex);
-            var refractionColor = new Color(0.0, 0.0, 0.0, 1.0);
-            if (fresnel < 1)
+            if (ray.objectHit.material.refractionIndex > 0.0)
             {
-                refractionColor = ComputeRefraction(ray.direction, N, ray.objectHit.material.refractionIndex);
+                var fresnel = ComputeFresnel(ray.direction, N, ray.objectHit.material.refractionIndex);
+                if (fresnel < 1)
+                {
+                    var refractionColor = ComputeRefraction(ray.direction, N, ray.objectHit.material.refractionIndex);
+                    // refract and reflect 
+                    reflectionColor.r = reflectionColor.r * fresnel + refractionColor.r * (1 - fresnel);
+                    reflectionColor.g = reflectionColor.g * fresnel + refractionColor.g * (1 - fresnel);
+                    reflectionColor.b = reflectionColor.b * fresnel + refractionColor.b * (1 - fresnel);
+                }
             }
             
             var outColor = new Color(0.0, 0.0, 0.0, 1.0);
@@ -913,11 +920,11 @@ function ComputeReflection(point, incidentRay, entities, lights, camera, depth)
     let reflectionRay = new Ray(point, reflectionDir);
     let col = Raytrace(reflectionRay, entities, lights, camera, depth - 1, incidentRay.objectHit);
 
-    let reflAmount = incidentRay.objectHit.reflectionAmount;
+    let reflAmount = incidentRay.objectHit.material.reflectionAmount;
     return new Color(col.r * reflAmount, col.g * reflAmount, col.b * reflAmount, 1.0);
 }
 
-function ComputeRefraction(P, I, N, ior, entities, lights)
+function ComputeRefraction(P, I, N, ior, entities, lights, depth)
 {
     let cosi = Math.clamp(-1, 1, Vec3.vec_dot(I, N)); 
     let etai = 1, etat = ior; 
@@ -949,7 +956,7 @@ function ComputeRefraction(P, I, N, ior, entities, lights)
     }
 }
 
-void ComputeFresnel(I, N, ior) 
+function ComputeFresnel(I, N, ior) 
 { 
     let cosi = Math.clamp(-1, 1, Vec3.vec_dot(I, N)); 
     let etai = 1, etat = ior; 
