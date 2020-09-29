@@ -1,7 +1,8 @@
 //import gauss from './gauss';
 
-Math.clamp = function(a, b, c){
-    Math.max(b,Math.min(c,a));
+Math.clamp = function(min, max, num){
+    //return Math.max(b,Math.min(c,a));
+    return Math.min(Math.max(num, min), max);
 }
 
 // CLASSES
@@ -283,12 +284,12 @@ class Material
 }
 
 const Materials= {
-    NEUTRAL: new Material(new Color(0.2, 0.2, 0.2, 1.0), new Color(0.8, 0.8, 0.8, 1.0), new Color(0.0225, 0.0225, 0.0225, 1.0), 12.8, 0.1, 0.0, true), 
+    NEUTRAL: new Material(new Color(0.2, 0.2, 0.2, 1.0), new Color(0.8, 0.8, 0.8, 1.0), new Color(0.0225, 0.0225, 0.0225, 1.0), 12.8, 0.0, 0.0, true), 
     PLASTIC: new Material(new Color(0.0, 0.1, 0.06, 1.0), new Color(0.0, 0.50980392, 0.50980392, 1.0), new Color(0.50196078, 0.50196078, 0.50196078, 1.0), 128.0, 0.4, 0.0, true),
     CHROME: new Material(new Color(0.25, 0.25, 0.25, 1.0), new Color(0.4, 0.4, 0.4, 1.0), new Color(0.774597, 0.774597, 0.774597, 1.0), 0.6 * 128.0, 0.8, 0.0, true),
-    GLASS: new Material(new Color(0.25, 0.25, 0.25, 1.0), new Color(0.4, 0.4, 0.4, 1.0), new Color(0.774597, 0.774597, 0.774597, 1.0), 0.6 * 128.0, 0.8, 1.5, true),
+    GLASS: new Material(new Color(0.25, 0.25, 0.25, 1.0), new Color(0.4, 0.4, 0.4, 1.0), new Color(0.774597, 0.774597, 0.774597, 1.0), 0.6 * 128.0, 1.0, 1.5, true),
     SKYBOX: new Material(new Color(1.0, 1.0, 1.0, 1.0), new Color(1.0, 1.0, 1.0, 1.0), new Color(1.0, 1.0, 1.0, 1.0), 0.6 * 128.0, 0.0, 0.0, false)
-}
+} // TODO: FIX GLASS MATERIAL..
 
 class Entity
 {
@@ -691,8 +692,8 @@ async function Main()
     // Other 
     entities.push(new Sphere(new Vec3(1.0, 0.5, 0.0), 0.5, new Color(0.0, 1.0, 0.0, 1.0), Materials.PLASTIC));
     entities.push(new Sphere(new Vec3(-1.0, 0.5, 0.0), 0.5, new Color(1.0, 1.0, 0.0, 1.0), Materials.CHROME));
-    entities.push(new Sphere(new Vec3(0.0, 2.5, 0.5), 0.5, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, textures["world"]));
-    entities.push(new Sphere(new Vec3(0.0, 0.5, -2.0), 0.5, new Color(1.0, 1.0, 1.0, 1.0), Materials.GLASS));
+    entities.push(new Sphere(new Vec3(0.0, 2.5, 0.5), 0.5, new Color(1.0, 1.0, 1.0, 1.0), Materials.NEUTRAL, textures["world"]));
+    entities.push(new Sphere(new Vec3(0.0, 1.5, -2.0), 0.5, new Color(1.0, 1.0, 1.0, 1.0), Materials.GLASS));
     
     // Add lights
     var lights = [];
@@ -787,26 +788,35 @@ function Raytrace(ray, entities, lights, camera, depth, avoid = null)
             
             var lightColor = ComputeLighting(ray, P, N, V, lights, entities);  
             
-            var reflectionColor = ComputeReflection(P, ray, entities, lights, camera, depth);
+            var reflectionColor = ComputeReflection(P, ray, entities, lights, camera, depth - 1);
 
             // Refraction
             if (ray.objectHit.material.refractionIndex > 0.0)
             {
                 var fresnel = ComputeFresnel(ray.direction, N, ray.objectHit.material.refractionIndex);
+                //xconsole.log(fresnel);
                 if (fresnel < 1)
                 {
-                    var refractionColor = ComputeRefraction(ray.direction, N, ray.objectHit.material.refractionIndex);
+                    var refractionColor = ComputeRefraction(P, ray.direction, N, ray.objectHit.material.refractionIndex, entities, lights, camera, depth - 1, ray.objectHit);
+                    //console.log(refractionColor);
                     // refract and reflect 
                     reflectionColor.r = reflectionColor.r * fresnel + refractionColor.r * (1 - fresnel);
                     reflectionColor.g = reflectionColor.g * fresnel + refractionColor.g * (1 - fresnel);
                     reflectionColor.b = reflectionColor.b * fresnel + refractionColor.b * (1 - fresnel);
+
+                    //reflectionColor.r = refractionColor.r;
+                    //reflectionColor.g = refractionColor.g;
+                    //reflectionColor.b = refractionColor.b;
                 }
             }
             
             var outColor = new Color(0.0, 0.0, 0.0, 1.0);
-            outColor.r += objectColor.r * (lightColor.r + reflectionColor.r);
-            outColor.g += objectColor.g * (lightColor.g + reflectionColor.g);
-            outColor.b += objectColor.b * (lightColor.b + reflectionColor.b);
+            outColor.r += (objectColor.r * lightColor.r) + reflectionColor.r;
+            outColor.g += (objectColor.g * lightColor.g) + reflectionColor.g;
+            outColor.b += (objectColor.b * lightColor.b) + reflectionColor.b;
+            //outColor.r += objectColor.r * (lightColor.r + reflectionColor.r);
+            //outColor.g += objectColor.g * (lightColor.g + reflectionColor.g);
+            //outColor.b += objectColor.b * (lightColor.b + reflectionColor.b);
             
             return outColor; 
         }
@@ -918,13 +928,13 @@ function ComputeReflection(point, incidentRay, entities, lights, camera, depth)
     let normal = incidentRay.objectHit.getNormal(point);
     let reflectionDir = Vec3.vec_normalize(Vec3.vec_sub(incidentRay.direction, Vec3.scalar_mul(2.0 * Vec3.vec_dot(normal, incidentRay.direction), normal)));
     let reflectionRay = new Ray(point, reflectionDir);
-    let col = Raytrace(reflectionRay, entities, lights, camera, depth - 1, incidentRay.objectHit);
+    let col = Raytrace(reflectionRay, entities, lights, camera, depth, incidentRay.objectHit);
 
     let reflAmount = incidentRay.objectHit.material.reflectionAmount;
     return new Color(col.r * reflAmount, col.g * reflAmount, col.b * reflAmount, 1.0);
 }
 
-function ComputeRefraction(P, I, N, ior, entities, lights, depth)
+function ComputeRefraction(P, I, N, ior, entities, lights, camera, depth, avoid)
 {
     let cosi = Math.clamp(-1, 1, Vec3.vec_dot(I, N)); 
     let etai = 1, etat = ior; 
@@ -939,20 +949,26 @@ function ComputeRefraction(P, I, N, ior, entities, lights, depth)
         [etai, etat] = [etat, etai];
         n = Vec3.vec_sub(new Vec3(0.0, 0.0, 0.0), N); 
     } 
- 
+    
     let eta = etai / etat; 
     let k = 1 - eta * eta * (1 - cosi * cosi); 
-
+    
     if (k < 0)
     {
         return new Color(0.0, 0.0, 0.0, 1.0);
     }
     else
     {
-        let refractionDirection =  Vec3.vec_normalize(Vec3.scalar_add((eta * cosi - Math.sqrt(k)) * n, Vec3.scalar_mul(eta, I)));
-        let refractionRay = new Ray(P, refractionDirection);
 
-        return Raytrace(refractionRay, entities, lights, camera, depth - 1, refractionRay.objectHit);
+        let outside = Vec3.vec_dot(I, N) < 0;
+        let bias = Vec3.scalar_mul(1e-4, N);
+        //let refractionDirection =  Vec3.vec_normalize(Vec3.scalar_add((eta * cosi - Math.sqrt(k)) * n, Vec3.scalar_mul(eta, I)));
+        let refractionDirection =  Vec3.vec_normalize(Vec3.vec_add(Vec3.scalar_mul(eta * cosi - Math.sqrt(k), n), Vec3.scalar_mul(eta, I)));
+        //let refractionOrigin = (outside ? Vec3.vec_add(bias, P) : Vec3.vec_sub(P, bias));
+        let refractionRay = new Ray(P, refractionDirection);
+        //console.log(Vec3.vec_add(Vec3.scalar_mul(eta * cosi - Math.sqrt(k), n), Vec3.scalar_mul(eta, I)));
+
+        return Raytrace(refractionRay, entities, lights, camera, depth, avoid);
     }
 }
 
@@ -965,6 +981,7 @@ function ComputeFresnel(I, N, ior)
         [etai, etat] = [etat, etai];
     }
 
+    
     // Compute sini using Snell's law
     let sint = etai / etat * Math.sqrt(Math.max(0, 1 - cosi * cosi)); 
     // Total internal reflection
