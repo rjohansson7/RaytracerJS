@@ -154,7 +154,7 @@ class Ray
                 var test = entity.intersect(this);
                 if (isNaN(test.min) == false)
                 {
-                    if (test.min < maxDistance)
+                    if (test.min < maxDistance && test.min > 0.0)
                     {
                         hit = true;
                         return;
@@ -288,6 +288,7 @@ const Materials= {
     PLASTIC: new Material(new Color(0.0, 0.1, 0.06, 1.0), new Color(0.0, 0.50980392, 0.50980392, 1.0), new Color(0.50196078, 0.50196078, 0.50196078, 1.0), 128.0, 0.4, 0.0, true),
     CHROME: new Material(new Color(0.25, 0.25, 0.25, 1.0), new Color(0.4, 0.4, 0.4, 1.0), new Color(0.774597, 0.774597, 0.774597, 1.0), 0.6 * 128.0, 0.8, 0.0, true),
     GLASS: new Material(new Color(0.0, 0.0, 0.0, 1.0), new Color(0.0, 0.0, 0.0, 1.0), new Color(0.9, 0.9, 0.9, 1.0), 128.0, 1.0, 1.5, true),
+    MIRROR: new Material(new Color(0.0, 0.0, 0.0, 1.0), new Color(0.0, 0.0, 0.0, 1.0), new Color(0.9, 0.9, 0.9, 1.0), 128.0, 1.0, 0.0, true),
     SKYBOX: new Material(new Color(1.0, 1.0, 1.0, 1.0), new Color(1.0, 1.0, 1.0, 1.0), new Color(1.0, 1.0, 1.0, 1.0), 0.6 * 128.0, 0.0, 0.0, false)
 } // TODO: FIX GLASS MATERIAL..
 
@@ -690,11 +691,40 @@ async function Main()
     // Floor
     entities.push(new Plane(new Vec3(0.0, 0.0, 0.0), new Vec3(0.0, 1.0, 0.0), new Vec3(0.0, 0.0, 1.0), 6, 4, new Color(1.0, 1.0, 1.0, 1.0), Materials.CHROME, textures["checkerboard"]));
     // Other 
-    entities.push(new Sphere(new Vec3(1.0, 0.5, 0.0), 0.5, new Color(0.0, 1.0, 0.0, 1.0), Materials.PLASTIC));
+    //entities.push(new Sphere(new Vec3(1.0, 0.5, 0.0), 0.5, new Color(0.0, 1.0, 0.0, 1.0), Materials.PLASTIC));
+    //entities.push(new Sphere(new Vec3(-1.0, 0.5, 0.0), 0.5, new Color(1.0, 1.0, 0.0, 1.0), Materials.CHROME));
+    //entities.push(new Sphere(new Vec3(0.0, 2.5, 0.5), 0.5, new Color(1.0, 1.0, 1.0, 1.0), Materials.NEUTRAL, textures["world"]));
+    //entities.push(new Sphere(new Vec3(0.0, 1.0, -1.5), 0.5, new Color(1.0, 1.0, 1.0, 1.0), Materials.GLASS));
+
     entities.push(new Sphere(new Vec3(-1.0, 0.5, 0.0), 0.5, new Color(1.0, 1.0, 0.0, 1.0), Materials.CHROME));
-    entities.push(new Sphere(new Vec3(0.0, 2.5, 0.5), 0.5, new Color(1.0, 1.0, 1.0, 1.0), Materials.NEUTRAL, textures["world"]));
-    entities.push(new Sphere(new Vec3(0.0, 1.0, -1.5), 0.5, new Color(1.0, 1.0, 1.0, 1.0), Materials.GLASS));
+    entities.push(new Sphere(new Vec3(-1.0, 1.7, 5.0), 0.5, new Color(1.0, 0.0, 0.0, 1.0), Materials.CHROME));
+    entities.push(new Sphere(new Vec3(0.6, 2.5, 2.5), 0.5, new Color(1.0, 1.0, 1.0, 1.0), Materials.NEUTRAL, textures["world"]));
+    entities.push(new Sphere(new Vec3(2.0, 0.5, 0.0), 0.5, new Color(0.0, 1.0, 0.0, 1.0), Materials.PLASTIC));
     
+    // R begin
+    entities.push(new Sphere(new Vec3(0.0, 0.2, 0.0), 0.2, new Color(1.0, 1.0, 1.0, 1.0), Materials.GLASS));
+    entities.push(new Sphere(new Vec3(0.0, 0.6, 0.0), 0.2, new Color(1.0, 1.0, 1.0, 1.0), Materials.GLASS));
+    entities.push(new Sphere(new Vec3(0.0, 1.0, 0.0), 0.2, new Color(1.0, 1.0, 1.0, 1.0), Materials.GLASS));
+    entities.push(new Sphere(new Vec3(0.0, 1.4, 0.0), 0.2, new Color(1.0, 1.0, 1.0, 1.0), Materials.GLASS));
+    entities.push(new Sphere(new Vec3(0.0, 1.8, 0.0), 0.2, new Color(1.0, 1.0, 1.0, 1.0), Materials.GLASS));
+    entities.push(new Sphere(new Vec3(0.0, 2.2, 0.0), 0.2, new Color(1.0, 1.0, 1.0, 1.0), Materials.GLASS));
+    entities.push(new Sphere(new Vec3(0.0, 2.6, 0.0), 0.2, new Color(1.0, 1.0, 1.0, 1.0), Materials.GLASS));
+    
+    entities.push(new Sphere(new Vec3(0.4, 2.6, 0.0), 0.2, new Color(1.0, 1.0, 1.0, 1.0), Materials.GLASS));
+    entities.push(new Sphere(new Vec3(0.8, 2.6, 0.0), 0.2, new Color(1.0, 1.0, 1.0, 1.0), Materials.GLASS));
+    
+    entities.push(new Sphere(new Vec3(1.1, 2.4, 0.0), 0.2, new Color(1.0, 1.0, 1.0, 1.0), Materials.GLASS));
+    entities.push(new Sphere(new Vec3(1.1, 2.0, 0.0), 0.2, new Color(1.0, 1.0, 1.0, 1.0), Materials.GLASS));
+
+    entities.push(new Sphere(new Vec3(0.8, 1.8, 0.0), 0.2, new Color(1.0, 1.0, 1.0, 1.0), Materials.GLASS));
+    entities.push(new Sphere(new Vec3(0.4, 1.8, 0.0), 0.2, new Color(1.0, 1.0, 1.0, 1.0), Materials.GLASS));
+
+    entities.push(new Sphere(new Vec3(0.4, 1.34, 0.0), 0.2, new Color(1.0, 1.0, 1.0, 1.0), Materials.GLASS));
+    entities.push(new Sphere(new Vec3(0.58, 0.96, 0.0), 0.2, new Color(1.0, 1.0, 1.0, 1.0), Materials.GLASS));
+    entities.push(new Sphere(new Vec3(0.76, 0.58, 0.0), 0.2, new Color(1.0, 1.0, 1.0, 1.0), Materials.GLASS));
+    entities.push(new Sphere(new Vec3(0.94, 0.2, 0.0), 0.2, new Color(1.0, 1.0, 1.0, 1.0), Materials.GLASS));
+    // R end
+
     // Add lights
     var lights = [];
     //lights.push(new PointLight(new Vec3(10.0, 4.0, -10.0), new Color(0.0215, 0.0215, 0.0215, 1.0), new Color(0.85, 0.85, 0.85, 1.0), new Color(0.8, 0.8, 0.8, 1.0)));
@@ -754,7 +784,7 @@ function ComputeImage(imageBuffer, entities, lights, camera)
         {
             // Get a ray for this pixel
             var ray = camera.GetPixelRay(x, y);
-            var color = Raytrace(ray, entities, lights, camera, 3);
+            var color = Raytrace(ray, entities, lights, camera, 10); //3
             
             SetPixel(x, y, imageBuffer.data, color.r, color.g, color.b, color.a);
         }           
@@ -785,12 +815,22 @@ function Raytrace(ray, entities, lights, camera, depth, avoid = null)
             
             // Get object color for this pixel, from texture or static color
             var objectColor = ray.objectHit.getPixelColor(ray.objectHitX, ray.objectHitY, P);
-            
-            var lightColor = ComputeLighting(ray, P, N, V, lights, entities);  
-            
-            var reflectionColor = ComputeReflection(P, ray, entities, lights, camera, depth - 1);
 
-            // Refraction
+            // Default colors for light and reflection TODO: Should add all light ambients or something
+            var lightColor = new Color(0.0, 0.0, 0.0, 1.0);
+            lightColor.r += lights[0].ambient.r * ray.objectHit.material.ambient.r;
+            lightColor.g += lights[0].ambient.g * ray.objectHit.material.ambient.g;
+            lightColor.b += lights[0].ambient.b * ray.objectHit.material.ambient.b;
+            var reflectionColor = new Color(0.0, 0.0, 0.0, 1.0);
+
+            // Only calculate light and reflection if point isn't in shadow
+            if (CheckShadow(P, lights[0], entities, ray.objectHit) == false)
+            {
+                lightColor = ComputeLighting(ray, P, N, V, lights, entities);  
+                reflectionColor = ComputeReflection(P, ray, entities, lights, camera, depth - 1);
+            }
+            
+            // Refraction (only if material has a positive refractionIndex)
             if (ray.objectHit.material.refractionIndex > 0.0)
             {
                 var fresnel = ComputeFresnel(ray.direction, N, ray.objectHit.material.refractionIndex);
@@ -803,20 +843,17 @@ function Raytrace(ray, entities, lights, camera, depth, avoid = null)
                     reflectionColor.r = reflectionColor.r * fresnel + refractionColor.r * (1 - fresnel);
                     reflectionColor.g = reflectionColor.g * fresnel + refractionColor.g * (1 - fresnel);
                     reflectionColor.b = reflectionColor.b * fresnel + refractionColor.b * (1 - fresnel);
-
-                    //reflectionColor.r = refractionColor.r;
-                    //reflectionColor.g = refractionColor.g;
-                    //reflectionColor.b = refractionColor.b;
                 }
             }
             
             var outColor = new Color(0.0, 0.0, 0.0, 1.0);
-            outColor.r += (objectColor.r * lightColor.r) + reflectionColor.r;
-            outColor.g += (objectColor.g * lightColor.g) + reflectionColor.g;
-            outColor.b += (objectColor.b * lightColor.b) + reflectionColor.b;
-            //outColor.r += objectColor.r * (lightColor.r + reflectionColor.r);
-            //outColor.g += objectColor.g * (lightColor.g + reflectionColor.g);
-            //outColor.b += objectColor.b * (lightColor.b + reflectionColor.b);
+            //outColor.r += (objectColor.r * lightColor.r) + reflectionColor.r;
+            //outColor.g += (objectColor.g * lightColor.g) + reflectionColor.g;
+            //outColor.b += (objectColor.b * lightColor.b) + reflectionColor.b;
+            
+            outColor.r += objectColor.r * (lightColor.r + reflectionColor.r);
+            outColor.g += objectColor.g * (lightColor.g + reflectionColor.g);
+            outColor.b += objectColor.b * (lightColor.b + reflectionColor.b);
             
             return outColor; 
         }
@@ -892,7 +929,13 @@ function ComputeLighting(ray, P, N, V, lights, entities)
                 break;
         }
     });
-                
+    
+    // Without object ambient (added in the raytrace function)
+    //Ip.r += Ia.r;
+    //Ip.g += Ia.g;
+    //Ip.b += Ia.b;
+
+    // With ambient
     Ip.r += ray.objectHit.material.ambient.r * Ia.r;
     Ip.g += ray.objectHit.material.ambient.g * Ia.g;
     Ip.b += ray.objectHit.material.ambient.b * Ia.b;

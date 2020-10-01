@@ -3,10 +3,8 @@ Simple raytracer written in javascript
 
 ## TODO
 - Is the sphere texture correct? Rotate the sphere
-- Better skybox (maybe smaller box, or sphere instead..)
-- Refraction
-- Texture mapping (How do i map texture to mesh...)
-- And more.. maybe
+- Refraction shadows?
+- Is refraction correct?
 #### Debug in VScode with Firefox developer edition: 
 1. Install [Debugger for Firefox](https://marketplace.visualstudio.com/items?itemName=firefox-devtools.vscode-firefox-debug)
 2. Either create your own `launch.json` or use mine (`.vscode/launch.json`)
