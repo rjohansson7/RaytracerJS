@@ -287,7 +287,7 @@ const Materials= {
     NEUTRAL: new Material(new Color(0.2, 0.2, 0.2, 1.0), new Color(0.8, 0.8, 0.8, 1.0), new Color(0.0225, 0.0225, 0.0225, 1.0), 12.8, 0.0, 0.0, true), 
     PLASTIC: new Material(new Color(0.0, 0.1, 0.06, 1.0), new Color(0.0, 0.50980392, 0.50980392, 1.0), new Color(0.50196078, 0.50196078, 0.50196078, 1.0), 128.0, 0.4, 0.0, true),
     CHROME: new Material(new Color(0.25, 0.25, 0.25, 1.0), new Color(0.4, 0.4, 0.4, 1.0), new Color(0.774597, 0.774597, 0.774597, 1.0), 0.6 * 128.0, 0.8, 0.0, true),
-    GLASS: new Material(new Color(0.25, 0.25, 0.25, 1.0), new Color(0.4, 0.4, 0.4, 1.0), new Color(0.774597, 0.774597, 0.774597, 1.0), 0.6 * 128.0, 1.0, 1.5, true),
+    GLASS: new Material(new Color(0.0, 0.0, 0.0, 1.0), new Color(0.0, 0.0, 0.0, 1.0), new Color(0.9, 0.9, 0.9, 1.0), 128.0, 1.0, 1.5, true),
     SKYBOX: new Material(new Color(1.0, 1.0, 1.0, 1.0), new Color(1.0, 1.0, 1.0, 1.0), new Color(1.0, 1.0, 1.0, 1.0), 0.6 * 128.0, 0.0, 0.0, false)
 } // TODO: FIX GLASS MATERIAL..
 
@@ -693,7 +693,7 @@ async function Main()
     entities.push(new Sphere(new Vec3(1.0, 0.5, 0.0), 0.5, new Color(0.0, 1.0, 0.0, 1.0), Materials.PLASTIC));
     entities.push(new Sphere(new Vec3(-1.0, 0.5, 0.0), 0.5, new Color(1.0, 1.0, 0.0, 1.0), Materials.CHROME));
     entities.push(new Sphere(new Vec3(0.0, 2.5, 0.5), 0.5, new Color(1.0, 1.0, 1.0, 1.0), Materials.NEUTRAL, textures["world"]));
-    entities.push(new Sphere(new Vec3(0.0, 1.5, -2.0), 0.5, new Color(1.0, 1.0, 1.0, 1.0), Materials.GLASS));
+    entities.push(new Sphere(new Vec3(0.0, 1.0, -1.5), 0.5, new Color(1.0, 1.0, 1.0, 1.0), Materials.GLASS));
     
     // Add lights
     var lights = [];
